@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Activity</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { font-family: 'Poppins', sans-serif; background-color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        /* HEADER: Nome e Timer */
+        .game-header { text-align: center; margin-bottom: 20px; }
+        .game-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+        .timer-box { display: inline-flex; align-items: center; gap: 5px; background: #f3f4f6; padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 18px; }
+        .btn-exit { position: absolute; top: 20px; left: 20px; background: #eee; padding: 10px 15px; text-decoration: none; color: black; border-radius: 6px; font-weight: bold; }
+
+        /* CONTENITORE GIOCO */
+        .game-container { flex: 1; display: flex; gap: 20px; justify-content: center; overflow: hidden; }
+
+        /* HANGMAN STYLES */
+        .hangman-layout { display: flex; width: 100%; max-width: 1000px; gap: 40px; }
+        .hangman-drawing { flex: 1; background: #f9f9f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .hangman-drawing svg { width: 250px; height: 300px; stroke: black; stroke-width: 4; fill: none; stroke-linecap: round; }
+        .hangman-logic { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .clue-image { max-width: 300px; max-height: 200px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .word-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; margin-bottom: 30px; font-family: monospace; }
+        .keyboard { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 400px; }
+        .key { padding: 10px 15px; font-size: 18px; font-weight: bold; background: white; border: 2px solid #ddd; border-radius: 6px; cursor: pointer; }
+        .key:hover { background: #f0f0f0; }
+        .key.disabled { opacity: 0.5; pointer-events: none; }
+        .key.correct { background: #22c55e; color: white; border-color: #22c55e; }
+        .key.wrong { background: #ef4444; color: white; border-color: #ef4444; }
+
+         /* CROSSWORD STYLES (Griglia reale auto-generata) */
+        .crossword-layout { display: flex; width: 100%; max-width: 1200px; gap: 20px; height: 100%; min-height: 500px; }
+        
+        /* Modificato: usa CSS Grid per posizionare le lettere in 2D */
+        .crossword-grid { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: auto; display: grid; gap: 2px; align-content: start; justify-content: start; }
+        
+        /* Nuova Cella con posizionamento relativo per il numerino */
+        .cw-cell { background: white; position: relative; width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; }
+        .cw-cell input { width: 100%; height: 100%; border: none; text-align: center; font-size: 20px; font-weight: bold; outline: none; text-transform: uppercase; background: transparent; padding: 0; }
+        
+        /* Stile del numerino per la definizione */
+        .cw-number { position: absolute; top: 1px; left: 2px; font-size: 10px; font-weight: bold; color: #333; pointer-events: none; line-height: 1; }
+        
+        .crossword-clues { flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; overflow-y: auto; max-height: 100%; }
+        .clue-item { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: white; padding: 10px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .clue-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+        .clue-number { font-weight: bold; font-size: 18px; width: 30px; text-align: center;}
+
+        /* Riga parola cruciverba */
+        .cw-word-row { display: flex; gap: 2px; }
+        .cw-cell { width: 35px; height: 35px; background: white; border: 1px solid #ccc; font-size: 20px; font-weight: bold; text-align: center; line-height: 35px; text-transform: uppercase; cursor: pointer; }
+        .cw-cell input { width: 100%; height: 100%; border: none; text-align: center; font-size: 20px; font-weight: bold; outline: none; text-transform: uppercase;}
+        
+        .crossword-clues { flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; overflow-y: auto; max-height: 100%; }
+        .clue-item { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: white; padding: 10px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .clue-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+        .clue-number { font-weight: bold; font-size: 18px; width: 30px; text-align: center;}
+
+        /* POPUP VITTORIA/SCONFITTA */
+        .result-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .result-modal { background: white; padding: 40px; border-radius: 16px; text-align: center; width: 400px; animation: popIn 0.3s ease-out; }
+        .result-modal h1 { font-size: 36px; margin-bottom: 10px; }
+        .result-modal.win h1 { color: #22c55e; }
+        .result-modal.lose h1 { color: #ef4444; }
+        .result-icon { font-size: 60px; margin-bottom: 20px; }
+        .btn-action { margin-top: 20px; padding: 12px 24px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; background: #000; color: white; width: 100%; margin-bottom: 10px; }
+        
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+    
+    <!-- Audio Elements for Win/Lose -->
+    <audio id="audioWin" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"></audio>
+    <audio id="audioLose" src="https://assets.mixkit.co/active_storage/sfx/3183/3183-preview.mp3"></audio>
+
+    <a href="index.html" class="btn-exit">⬅ Torna alla Dashboard</a>
+
+    <div class="game-header">
+        <div class="game-title" id="gameTitle">Caricamento...</div>
+        <div class="timer-box">
+            ⏱ <span id="timerDisplay">00:00</span>
+        </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <!-- Il motore JS inietterà il gioco qui dentro -->
+    </div>
+
+    <!-- Modale Fine Partita -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-modal" id="resultModal">
+            <div class="result-icon" id="resultIcon">🏆</div>
+            <h1 id="resultTitle">Hai Vinto!</h1>
+            <p id="resultText">Bravissimo, hai completato l'attività in tempo.</p>
+            <button class="btn-action" onclick="location.reload()">Rigioca</button>
+            <button class="btn-action" style="background: #ccc; color: black;" onclick="window.location.href='index.html'">Esci</button>
+        </div>
+    </div>
+
+    <script>
+        // --- INIZIALIZZAZIONE DATI ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const activityId = urlParams.get('id');
+        let fileSystem = JSON.parse(localStorage.getItem('myPuzzelCloneFS')) || {};
+        let activityData = null;
+
+        // Cerca l'attività nel fileSystem
+        for (const folder in fileSystem) {
+            const found = fileSystem[folder].find(item => item.id === activityId);
+            if (found) { activityData = found; break; }
+        }
+
+        if (!activityData) {
+            alert("Attività non trovata!");
+            window.location.href = "index.html";
+        }
+
+        document.getElementById('gameTitle').innerText = activityData.name;
+
+        // --- REGISTRAZIONE STATISTICHE DI GIOCO ---
+        // Salva una nuova sessione per questa attività nel localStorage
+        let gameStats = JSON.parse(localStorage.getItem('myPuzzelCloneStats')) || [];
+        gameStats.push({
+            activityId: activityData.id,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('myPuzzelCloneStats', JSON.stringify(gameStats));
+        // ------------------------------------------
+
+        // --- TIMER LOGIC ---
+        let timeRemaining = (activityData.timerMinutes || 5) * 60;
+        let timerInterval;
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        function updateTimer() {
+            const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            const s = (timeRemaining % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${m}:${s}`;
+            
+            if (timeRemaining <= 0) {
+                endGame(false, "Tempo scaduto!");
+            }
+            timeRemaining--;
+        }
+
+        function startTimer() {
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // --- WIN / LOSE LOGIC ---
+        const resultOverlay = document.getElementById('resultOverlay');
+        const resultModal = document.getElementById('resultModal');
+        const audioWin = document.getElementById('audioWin');
+        const audioLose = document.getElementById('audioLose');
+
+        function endGame(isWin, message = "") {
+            clearInterval(timerInterval);
+            resultOverlay.style.display = 'flex';
+            
+            if (isWin) {
+                resultModal.className = 'result-modal win';
+                document.getElementById('resultIcon').innerText = '🏆';
+                document.getElementById('resultTitle').innerText = 'Hai Vinto!';
+                document.getElementById('resultText').innerText = message || "Bravissimo, hai completato l'attività.";
+                audioWin.play();
+            } else {
+                resultModal.className = 'result-modal lose';
+                document.getElementById('resultIcon').innerText = '💀';
+                document.getElementById('resultTitle').innerText = 'Hai Perso!';
+                document.getElementById('resultText').innerText = message || "Ritenta, sarai più fortunato.";
+                audioLose.play();
+            }
+        }
+
+
+        // --- ENGINE: HANGMAN ---
+        function initHangman() {
+            const container = document.getElementById('gameContainer');
+            const words = activityData.words; // [{word, image}]
+            
+            let currentWordIndex = 0;
+            let currentWord = words[currentWordIndex].word;
+            let guessedLetters = [];
+            let mistakes = 0;
+            const maxMistakes = 6;
+
+            // Disegna il layout
+            container.innerHTML = `
+                <div class="hangman-layout">
+                    <div class="hangman-logic">
+                        <img id="hmImage" class="clue-image" src="" alt="Indizio">
+                        <div id="hmWord" class="word-display"></div>
+                        <div id="hmKeyboard" class="keyboard"></div>
+                    </div>
+                    <div class="hangman-drawing">
+                        <svg id="hmSvg">
+                            <line x1="10" y1="280" x2="150" y2="280" /> <!-- Base -->
+                            <line x1="80" y1="280" x2="80" y2="40" class="part p1" style="display:none;" /> <!-- Palo -->
+                            <line x1="80" y1="40" x2="180" y2="40" class="part p2" style="display:none;" /> <!-- Traversa -->
+                            <line x1="180" y1="40" x2="180" y2="70" class="part p3" style="display:none;" /> <!-- Corda -->
+                            <circle cx="180" cy="100" r="30" class="part p4" style="display:none;" /> <!-- Testa -->
+                            <line x1="180" y1="130" x2="180" y2="200" class="part p5" style="display:none;" /> <!-- Corpo -->
+                            <path d="M 180 140 L 140 180 M 180 140 L 220 180 M 180 200 L 150 250 M 180 200 L 210 250" class="part p6" style="display:none;" /> <!-- Arti -->
+                        </svg>
+                        <h3 style="margin-top:20px; color: #666;">Errori: <span id="hmMistakes">0</span>/6</h3>
+                    </div>
+                </div>
+            `;
+
+            const hmWord = document.getElementById('hmWord');
+            const hmKeyboard = document.getElementById('hmKeyboard');
+            const hmImage = document.getElementById('hmImage');
+            const hmMistakes = document.getElementById('hmMistakes');
+
+            function renderWord() {
+                let display = '';
+                let hasWonWord = true;
+                for(let char of currentWord) {
+                    if (char === ' ') {
+                        display += '&nbsp;&nbsp;';
+                    } else if (guessedLetters.includes(char)) {
+                        display += char;
+                    } else {
+                        display += '_';
+                        hasWonWord = false;
+                    }
+                }
+                hmWord.innerHTML = display;
+
+                if (hasWonWord) {
+                    setTimeout(() => {
+                        currentWordIndex++;
+                        if (currentWordIndex >= words.length) {
+                            endGame(true, "Hai indovinato tutte le parole!");
+                        } else {
+                            // Prossima parola
+                            loadWord();
+                        }
+                    }, 1000);
+                }
+            }
+
+            function drawHangman() {
+                hmMistakes.innerText = mistakes;
+                if(mistakes >= 1) document.querySelector('.p1').style.display = 'block';
+                if(mistakes >= 2) document.querySelector('.p2').style.display = 'block';
+                if(mistakes >= 3) document.querySelector('.p3').style.display = 'block';
+                if(mistakes >= 4) document.querySelector('.p4').style.display = 'block';
+                if(mistakes >= 5) document.querySelector('.p5').style.display = 'block';
+                if(mistakes >= 6) {
+                    document.querySelector('.p6').style.display = 'block';
+                    endGame(false, `L'omino è stato impiccato! La parola era ${currentWord}`);
+                }
+            }
+
+            function handleGuess(letter, btnElement) {
+                if(guessedLetters.includes(letter) || mistakes >= maxMistakes) return;
+                
+                guessedLetters.push(letter);
+                btnElement.classList.add('disabled');
+
+                if (currentWord.includes(letter)) {
+                    btnElement.classList.add('correct');
+                } else {
+                    btnElement.classList.add('wrong');
+                    mistakes++;
+                    drawHangman();
+                }
+                renderWord();
+            }
+
+            function loadWord() {
+                currentWord = words[currentWordIndex].word;
+                guessedLetters = [];
+                // Reset grafica omino per ogni nuova parola? In Puzzel gli errori sono cumulativi, li manteniamo.
+                
+                // Aggiorna Immagine
+                if(words[currentWordIndex].image && words[currentWordIndex].image !== 'null') {
+                    hmImage.src = words[currentWordIndex].image;
+                    hmImage.style.display = 'block';
+                } else {
+                    hmImage.style.display = 'none';
+                }
+
+                // Genera Tastiera
+                hmKeyboard.innerHTML = '';
+                const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                for(let char of alphabet) {
+                    const btn = document.createElement('button');
+                    btn.className = 'key';
+                    btn.innerText = char;
+                    btn.onclick = () => handleGuess(char, btn);
+                    hmKeyboard.appendChild(btn);
+                }
+
+                renderWord();
+            }
+
+            loadWord();
+            startTimer();
+        }
+
+        // --- ENGINE: CROSSWORD ---
+        // --- ENGINE: CROSSWORD (GENERATORE REALE) ---
+        function initCrossword() {
+            const container = document.getElementById('gameContainer');
+            
+            // 1. Preparazione dei dati: pulisce le parole e le ordina per lunghezza decrescente
+            // per facilitare l'incastro (la parola più lunga fa da "spina dorsale")
+            let wordsList = activityData.words.map((item, index) => ({
+                originalIndex: index + 1, // Il numero che l'utente vedrà
+                text: item.word.replace(/\s/g, '').toUpperCase(),
+                image: item.image
+            })).sort((a, b) => b.text.length - a.text.length);
+
+            // 2. Strutture dati per la generazione
+            let gridInfo = new Map(); // Tiene traccia delle lettere posizionate: 'x,y' -> 'C'
+            let wordPlacements = [];  // Dove è stata messa ogni parola
+
+            // Funzione di controllo collisioni
+            function canPlace(wordStr, startX, startY, dirX, dirY) {
+                for (let i = 0; i < wordStr.length; i++) {
+                    let x = startX + i * dirX;
+                    let y = startY + i * dirY;
+                    let key = `${x},${y}`;
+
+                    if (gridInfo.has(key)) {
+                        // Se c'è già una lettera, DEVE essere la stessa (intersezione)
+                        if (gridInfo.get(key) !== wordStr[i]) return false;
+                    } else {
+                        // Se la cella è vuota, le celle adiacenti (perpendicolari) DEVONO essere vuote
+                        // per evitare che due parole diverse si incollino lateralmente
+                        let pX = dirY; let pY = dirX; 
+                        if (gridInfo.has(`${x + pX},${y + pY}`)) return false;
+                        if (gridInfo.has(`${x - pX},${y - pY}`)) return false;
+                    }
+                }
+                // Controlla che le celle immediatamente prima e dopo la parola siano vuote
+                if (gridInfo.has(`${startX - dirX},${startY - dirY}`)) return false;
+                if (gridInfo.has(`${startX + wordStr.length * dirX},${startY + wordStr.length * dirY}`)) return false;
+
+                return true;
+            }
+
+            // 3. Algoritmo di posizionamento
+            for (let w of wordsList) {
+                let placed = false;
+                let wordStr = w.text;
+
+                // La prima parola va messa in orizzontale (0,0)
+                if (gridInfo.size === 0) {
+                    for (let i = 0; i < wordStr.length; i++) gridInfo.set(`${i},0`, wordStr[i]);
+                    wordPlacements.push({ ...w, x: 0, y: 0, dirX: 1, dirY: 0 });
+                    continue;
+                }
+
+                // Prova ad intersecare la parola corrente con quelle già piazzate
+                for (let p of wordPlacements) {
+                    if (placed) break;
+                    for (let i = 0; i < wordStr.length; i++) { // Per ogni lettera della nuova parola
+                        if (placed) break;
+                        let char = wordStr[i];
+                        for (let j = 0; j < p.text.length; j++) { // Per ogni lettera della parola piazzata
+                            if (p.text[j] === char) {
+                                // Trovata lettera in comune! Calcola le coordinate di intersezione
+                                let intersectX = p.x + j * p.dirX;
+                                let intersectY = p.y + j * p.dirY;
+
+                                // Direzione perpendicolare
+                                let dirX = p.dirY === 0 ? 0 : 1;
+                                let dirY = p.dirX === 0 ? 0 : 1;
+
+                                // Calcola dove deve iniziare la nuova parola
+                                let startX = intersectX - i * dirX;
+                                let startY = intersectY - i * dirY;
+
+                                if (canPlace(wordStr, startX, startY, dirX, dirY)) {
+                                    for (let k = 0; k < wordStr.length; k++) {
+                                        gridInfo.set(`${startX + k * dirX},${startY + k * dirY}`, wordStr[k]);
+                                    }
+                                    wordPlacements.push({ ...w, x: startX, y: startY, dirX, dirY });
+                                    placed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Se non riesce ad incrociarla, la mette isolata in fondo (fallback di sicurezza)
+                if (!placed) {
+                    let maxY = -100;
+                    for (let key of gridInfo.keys()) {
+                        let y = parseInt(key.split(',')[1]);
+                        if (y > maxY) maxY = y;
+                    }
+                    let startY = maxY + 2;
+                    for (let k = 0; k < wordStr.length; k++) gridInfo.set(`${k},${startY}`, wordStr[k]);
+                    wordPlacements.push({ ...w, x: 0, y: startY, dirX: 1, dirY: 0 });
+                }
+            }
+
+            // 4. Calcola i margini della griglia generata
+            let minX = 0, maxX = 0, minY = 0, maxY = 0;
+            gridInfo.forEach((val, key) => {
+                let [x, y] = key.split(',').map(Number);
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+            });
+
+            // 5. Costruisci il layout HTML
+            container.innerHTML = `
+                <div class="crossword-layout">
+                    <div class="crossword-grid" id="cwGrid"></div>
+                    <div class="crossword-clues" id="cwClues"></div>
+                </div>
+            `;
+
+            const cwGrid = document.getElementById('cwGrid');
+            const cwClues = document.getElementById('cwClues');
+
+            // Imposta dinamicamente le righe e colonne del CSS Grid
+            const cols = maxX - minX + 1;
+            const rows = maxY - minY + 1;
+            cwGrid.style.gridTemplateColumns = `repeat(${cols}, 35px)`;
+            cwGrid.style.gridTemplateRows = `repeat(${rows}, 35px)`;
+
+            // Crea un dizionario delle caselle di partenza (per stampare il numerino)
+            let startCells = {}; 
+            wordPlacements.forEach(w => {
+                startCells[`${w.x},${w.y}`] = w.originalIndex;
+            });
+
+            // 6. Riempi la griglia con gli input
+            gridInfo.forEach((char, key) => {
+                let [x, y] = key.split(',').map(Number);
+                
+                const cell = document.createElement('div');
+                cell.className = 'cw-cell';
+                // Posiziona l'elemento nella griglia CSS (le griglie CSS partono da 1)
+                cell.style.gridColumn = (x - minX + 1);
+                cell.style.gridRow = (y - minY + 1);
+
+                // Se è l'inizio di una parola, metti il numerino
+                if (startCells[key]) {
+                    const numberSpan = document.createElement('span');
+                    numberSpan.className = 'cw-number';
+                    numberSpan.innerText = startCells[key];
+                    cell.appendChild(numberSpan);
+                }
+
+                const input = document.createElement('input');
+                input.maxLength = 1;
+                input.dataset.correct = char; // Salva la lettera giusta nascosta
+
+                // GESTIONE DEL CONTROLLO IMMEDIATO E AUTOSCROLL
+                input.addEventListener('input', function() {
+                    this.value = this.value.toUpperCase();
+                    
+                    // CONTROLLO VITTORIA/SCONFITTA ISTANTANEO
+                    const allInputs = document.querySelectorAll('.cw-cell input');
+                    let filledCount = 0;
+                    allInputs.forEach(inp => { if(inp.value !== '') filledCount++; });
+
+                    // Se tutti gli input sono stati riempiti...
+                    if (filledCount === allInputs.length) {
+                        let isCorrect = true;
+                        allInputs.forEach(inp => {
+                            if (inp.value !== inp.dataset.correct) isCorrect = false;
+                        });
+
+                        // Lancia l'overlay (Vinto se tutto giusto, Perso se c'è un errore)
+                        if (isCorrect) {
+                            endGame(true, "Cruciverba completato perfettamente!");
+                        } else {
+                            endGame(false, "Attenzione: alcune lettere sono sbagliate!");
+                        }
+                    }
+                });
+
+                cell.appendChild(input);
+                cwGrid.appendChild(cell);
+            });
+
+            // 7. Genera la colonna laterale degli indizi (immagini) in ordine di numero
+            wordPlacements.sort((a, b) => a.originalIndex - b.originalIndex).forEach(w => {
+                const clue = document.createElement('div');
+                clue.className = 'clue-item';
+                clue.innerHTML = `<span class="clue-number">${w.originalIndex}</span>`;
+                if(w.image && w.image !== 'null') {
+                    clue.innerHTML += `<img src="${w.image}" alt="indizio">`;
+                } else {
+                    clue.innerHTML += `<span style="font-style:italic; color:#888;">(Nessuna immagine)</span>`;
+                }
+                cwClues.appendChild(clue);
+            });
+
+            // Avvia il timer
+            startTimer();
+        }
+
+        // --- AVVIA GIOCO ---
+        if (activityData.templateKey === 'hangman') {
+            initHangman();
+        } else {
+            // Seleziona crossword di default
+            initCrossword();
+        }
+    </script>
+</body>
+</html>

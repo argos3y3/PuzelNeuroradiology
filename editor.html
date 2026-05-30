@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { background-color: #f9f9f9; padding: 30px; }
+        .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .btn-save { background: #ec4899; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-back { background: #ccc; color: black; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-decoration: none; }
+        
+        .settings-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+        .input-group input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; }
+        
+        .items-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .item-row { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
+        .item-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 4px; text-transform: uppercase;}
+        .item-row input[type="file"] { flex: 1; }
+        .img-preview { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; display: none; }
+        .btn-remove { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-add { background: #000; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="editor-header">
+        <div>
+            <h1 id="editorTitle">Crea Attività</h1>
+            <p>Aggiungi le parole e le immagini per il tuo gioco.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="index.html" class="btn-back">Annulla</a>
+            <button class="btn-save" id="btnSave">Salva Attività</button>
+        </div>
+    </div>
+
+    <div class="settings-panel">
+        <div class="input-group">
+            <label>Nome Attività</label>
+            <input type="text" id="activityName" placeholder="Es. Anatomia Umana">
+        </div>
+        <div class="input-group" style="flex: 0.3;">
+            <label>Timer (Minuti)</label>
+            <input type="number" id="activityTimer" value="5" min="1" max="60">
+        </div>
+    </div>
+
+    <div class="items-panel">
+        <h3>Contenuto (Parole e Immagini)</h3>
+        <div id="itemsContainer"></div>
+        <button class="btn-add" id="btnAddItem">+ Aggiungi Parola</button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const activityTypeKey = urlParams.get('type'); // crossword o hangman
+        const folderId = urlParams.get('folder');
+        
+        document.getElementById('editorTitle').innerText = activityTypeKey === 'crossword' ? 'Crea Crucitomo' : 'Crea Il tempo è tiranno';
+
+        const itemsContainer = document.getElementById('itemsContainer');
+        const btnAddItem = document.getElementById('btnAddItem');
+        const btnSave = document.getElementById('btnSave');
+
+        let itemsData = [];
+
+        function createItemRow() {
+            const rowId = Date.now();
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.dataset.id = rowId;
+
+            row.innerHTML = `
+                <input type="text" placeholder="Inserisci Parola (es. APPENDICE)" class="word-input">
+                <input type="file" accept="image/png, image/jpeg" class="file-input">
+                <img src="" class="img-preview">
+                <button class="btn-remove">Elimina</button>
+            `;
+
+            // Conversione immagine in Base64 (per salvarla senza server)
+            const fileInput = row.querySelector('.file-input');
+            const imgPreview = row.querySelector('.img-preview');
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        imgPreview.src = event.target.result;
+                        imgPreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            row.querySelector('.btn-remove').addEventListener('click', () => row.remove());
+            itemsContainer.appendChild(row);
+        }
+
+        btnAddItem.addEventListener('click', createItemRow);
+        
+        // Inizializza con 3 righe vuote
+        for(let i=0; i<3; i++) createItemRow();
+
+        btnSave.addEventListener('click', () => {
+            const name = document.getElementById('activityName').value.trim() || 'Attività Senza Nome';
+            const timer = parseInt(document.getElementById('activityTimer').value) || 5;
+            const rows = document.querySelectorAll('.item-row');
+            
+            let wordsArray = [];
+            rows.forEach(row => {
+                const word = row.querySelector('.word-input').value.trim().toUpperCase();
+                const imageSrc = row.querySelector('.img-preview').src;
+                // Salva solo se c'è almeno la parola
+                if (word !== '') {
+                    wordsArray.push({ word: word, image: imageSrc || null });
+                }
+            });
+
+            if (wordsArray.length === 0) {
+                alert("Devi inserire almeno una parola!");
+                return;
+            }
+
+            // Salvataggio nel database locale
+            let fileSystem = JSON.parse(localStorage.getItem('myPuzzelCloneFS')) || { 'root': [] };
+            if (!fileSystem[folderId]) fileSystem[folderId] = [];
+
+            const newActivity = {
+                id: 'a_' + Date.now(),
+                type: 'activity',
+                name: name,
+                activityType: activityTypeKey === 'crossword' ? 'Crucitomo' : 'Il tempo è tiranno',
+                templateKey: activityTypeKey,
+                date: new Date().toLocaleString('it-IT').slice(0, 16).replace(',', ''),
+                timerMinutes: timer,
+                words: wordsArray
+            };
+
+            fileSystem[folderId].push(newActivity);
+            localStorage.setItem('myPuzzelCloneFS', JSON.stringify(fileSystem));
+
+            alert("Attività salvata con successo!");
+            window.location.href = 'index.html'; // Torna alla dashboard
+        });
+    </script>
+</body>
+</html>

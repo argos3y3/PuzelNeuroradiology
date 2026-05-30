@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Stats - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');</style>
+    <!-- Importiamo Chart.js per disegnare i grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="p-logo">P</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html"><img src="https://img.icons8.com/material-outlined/24/000000/dashboard.png"/> activities</a></li>
+                <li>
+                    <a href="folders.html">
+                        <svg fill="#000000" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm10 14H4V8h16v10z"/>
+                        </svg>
+                        folders
+                    </a>
+                </li>
+                <!-- QUESTA ORA E' LA PAGINA ATTIVA -->
+                <li class="active"><a href="stats.html"><img src="https://img.icons8.com/material-outlined/24/000000/bar-chart.png"/> activity stats</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="main-header" style="margin-bottom: 40px;">
+                <h1 style="font-size: 42px;">account dashboard</h1>
+            </header>
+
+            <!-- GRAFICO GLOBALE IN ALTO -->
+            <div class="stats-card">
+                <h2>total number of sessions per account per month</h2>
+                <div class="chart-container">
+                    <canvas id="globalChart"></canvas>
+                </div>
+            </div>
+
+            <h2 style="font-size: 24px; margin-bottom: 20px;">activity stats per month</h2>
+
+            <!-- LAYOUT DIVISO IN BASSO -->
+            <div class="stats-split-layout">
+                <!-- Lista sinistra -->
+                <div class="stats-sidebar" id="activitiesList">
+                    <!-- Le attività verranno inserite qui dal JS -->
+                </div>
+
+                <!-- Grafico specifico destra -->
+                <div class="stats-detail-area">
+                    <div class="stats-card">
+                        <h2 id="specificChartTitle">Seleziona un'attività</h2>
+                        <div class="chart-container">
+                            <canvas id="specificChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Colleghiamo lo script per le statistiche -->
+    <script src="stats.js"></script>
+</body>
+</html>

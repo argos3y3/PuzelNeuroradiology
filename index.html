@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Giochi Locale</title>
+    <link rel="stylesheet" href="style.css">
+    <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');</style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="p-logo">P</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="index.html"><img src="https://img.icons8.com/material-outlined/24/000000/dashboard.png"/> activities</a></li>
+                <li>
+                    <a href="folders.html">
+                        <svg fill="#000000" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm10 14H4V8h16v10z"/>
+                        </svg>
+                        folders
+                    </a>
+                </li>
+                <!-- Aggiunto il link corretto a stats.html -->
+                <li><a href="stats.html"><img src="https://img.icons8.com/material-outlined/24/000000/bar-chart.png"/> activity stats</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="main-header">
+                <h1>account dashboard</h1>
+                <div class="header-actions">
+                    <!-- Nuovi pulsanti di Backup e Restore -->
+                    <button id="btnExportData" style="background:none; border:none; cursor:pointer; font-size: 20px; margin-right: 10px;" title="Salva su PC">💾</button>
+                    <button id="btnImportData" style="background:none; border:none; cursor:pointer; font-size: 20px; margin-right: 20px;" title="Carica da PC">📂</button>
+                    <input type="file" id="importFileInput" style="display:none;" accept=".json">
+                    
+                    <button class="btn-create-top" id="btnCreateActivityTop">+ CREATE ACTIVITY</button>
+                    <div class="menu-burger">☰</div>
+                </div>
+            </header>
+
+            <section class="controls-area">
+                <div class="search-bar">
+                    <img src="https://img.icons8.com/material-outlined/24/000000/search.png"/>
+                    <input type="text" id="dashboardSearch" placeholder="search">
+                </div>
+                <div class="action-buttons">
+                    <!-- Aggiunto ID per il pulsante nel corpo -->
+                    <button class="btn-create" id="btnCreateActivityBody">+ CREATE ACTIVITY</button>
+                    <button class="btn-folder" id="btnSelectFolder">📁 SELECT FOLDER</button>
+                </div>
+            </section>
+
+            <section class="activities-table-container">
+                <table class="activities-table">
+                    <thead>
+                        <tr>
+                            <th>CREATED AT</th>
+                            <th>NAME</th>
+                            <th>ACTIVITY TYPE</th>
+                            <th>FOLDERS</th> <!-- Nuova colonna in foto -->
+                            <th>ACTIONS</th> <!-- Icone d'azione in foto -->
+                        </tr>
+                    </thead>
+                    <!-- Aggiunto ID al corpo della tabella per il rendering JS -->
+                    <tbody id="activitiesTableBody">
+                        <!-- Le attività verranno inserite qui dal JS -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Modale per la creazione di una nuova attività (NUOVA) -->
+            <div id="createActivityModal" class="modal-overlay" style="display: none;">
+                <div class="modal-content large-modal">
+                    <div class="modal-header">
+                        <h2>create activity</h2>
+                        <span id="btnCloseCreateActivity" class="close-icon">&times;</span>
+                    </div>
+                    
+                    <!-- Barra di ricerca e categorie -->
+                    <div class="activity-search-area">
+                        <div class="search-bar">
+                            <img src="https://img.icons8.com/material-outlined/24/000000/search.png"/>
+                            <input type="text" id="activitySearch" placeholder="search">
+                        </div>
+                        <!-- Categorie fittizie come nell'immagine, per ora statiche -->
+                        <div class="category-filters">
+                            <span class="active">all</span>
+                            <span>word puzzles</span>
+                            <span>image puzzles</span>
+                        </div>
+                    </div>
+
+                    <!-- Layout a due colonne: opzioni a sinistra, dettagli a destra -->
+                    <div class="create-activity-layout">
+                        <!-- Griglia delle attività disponibili (2 opzioni richiestet) -->
+                        <!-- Griglia delle attività disponibili -->
+                        <!-- Griglia delle attività disponibili -->
+                        <div id="activityOptions" class="activity-options-grid">
+                            
+                            <!-- Opzione 1: Crucitomo -->
+                            <div id="optionCrucitomo" class="activity-option-card">
+                                <div class="option-visual">
+                                    <svg fill="#000000" width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 3v18h18V3H3zm16 16H5V5h14v14z"/>
+                                        <path d="M7 7h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2zm-8 4h2v2H7zm4 0h6v2h-6zm-4 4h6v2H7zm8 0h2v2h-2z"/>
+                                    </svg>
+                                </div>
+                                <!-- Cambiato in Crucitomo -->
+                                <span class="option-name">Crucitomo</span>
+                            </div>
+
+                            <!-- Opzione 2: Il tempo è tiranno -->
+                            <div id="optionImpiccato" class="activity-option-card">
+                                <div class="option-visual">
+                                    <svg fill="#000000" width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M6 3h8v2H8v14h10v-5h2v7H6V3z"/>
+                                        <circle cx="14" cy="7.5" r="1.5"/>
+                                        <path d="M14 10v4h-1v-4h1zm-1 1h-2V9h2v2zm2 0h2V9h-2v2zm-1 4l-1.5 3h1.2l1-2 1 2h1.2L14 15z"/>
+                                        <path d="M13 3v2h2V3h-2z"/>
+                                    </svg>
+                                </div>
+                                <!-- Cambiato in Il tempo è tiranno -->
+                                <span class="option-name">Il tempo è tiranno</span>
+                            </div>
+
+                        </div>
+
+                        <!-- Vista Dettagli (nascosta inizialmente) -->
+                        <div id="activityDetailView" class="activity-detail-view" style="display: none;">
+                            <div class="detail-header">
+                                <h3 id="detailTitle">Nome Attività</h3>
+                            </div>
+                            <div class="detail-body">
+                                <p id="detailDesc">The crossword puzzle is unique... (testo segnaposto)</p>
+                            </div>
+                            <div class="detail-footer">
+                                <!-- Pulsante d'azione rosa come in foto -->
+                                <button id="btnStartBuilding" class="btn-confirm">create activity</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Modale per la selezione del folder (GIA' PRESENTE) -->
+            <div id="selectFolderModal" class="modal-overlay" style="display: none;">
+                <div class="modal-content">
+                    <h2>Seleziona una cartella</h2>
+                    <ul id="folderList" class="folder-list">
+                        <!-- La lista delle cartelle apparirà qui -->
+                    </ul>
+                    <div class="modal-actions" style="justify-content: space-between;">
+                        <button id="btnCancelSelectFolder" class="btn-cancel">Chiudi</button>
+                        <button id="btnShowAllActivities" class="btn-confirm">Mostra Tutte</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Modale Azioni Attività (Copy / Embed / Delete) -->
+            <div id="activityActionsModal" class="modal-overlay" style="display: none;">
+                <div class="modal-content" style="position: relative; width: auto; padding: 40px;">
+                    <span id="btnCloseActivityActions" class="close-icon" style="position: absolute; top: 10px; right: 15px;">&times;</span>
+                    
+                    <div class="action-buttons-grid">
+                        <button id="btnCopyActivity" class="action-square-btn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                            </svg>
+                            <span>COPY</span>
+                        </button>
+                        
+                        <button id="btnEmbedActivity" class="action-square-btn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                            </svg>
+                            <span>EMBED</span>
+                        </button>
+                        
+                        <button id="btnDeleteActivity" class="action-square-btn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                            <span>DELETE</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Collega il nuovo script della Home -->
+    <script src="index.js"></script>
+</body>
+</html>

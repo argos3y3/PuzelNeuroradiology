@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folders - Dashboard Giochi</title>
+    <!-- Importiamo il tuo CSS di base -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Importiamo il CSS specifico per le cartelle -->
+    <link rel="stylesheet" href="folders.css">
+    <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');</style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- SIDEBAR (Copiata dalla home, con 'folders' active) -->
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="p-logo">P</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html"><img src="https://img.icons8.com/material-outlined/24/000000/dashboard.png"/> activities</a></li>
+                <li class="active">
+                    <a href="folders.html">
+                        <svg fill="#000000" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm10 14H4V8h16v10z"/>
+                        </svg>
+                        folders
+                    </a>
+                </li>
+                <!-- Aggiunto il link corretto a stats.html -->
+                <li><a href="stats.html"><img src="https://img.icons8.com/material-outlined/24/000000/bar-chart.png"/> activity stats</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="main-header">
+                <h1>account dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn-create-top">+ CREATE ACTIVITY</button>
+                    <div class="menu-burger">☰</div>
+                </div>
+            </header>
+
+            <!-- BOX INFORMATIVO (Come nella foto) -->
+            <div class="info-banner">
+                <div class="info-icon">
+                    <img src="https://img.icons8.com/material-outlined/24/000000/info.png"/>
+                </div>
+                <div class="info-text">
+                    <strong>Drag and drop folders and activities to organise them</strong><br>
+                    You can move activities and folders to a new location...
+                </div>
+            </div>
+
+            <!-- BARRA STRUMENTI CARTELLE (Breadcrumbs e Pulsante) -->
+            <section class="folder-toolbar">
+                <div class="breadcrumbs" id="breadcrumbs">
+                    <span class="breadcrumb-item active" data-path="root">🏠 Home</span>
+                    <!-- Altri step appariranno qui dinamicamente tramite JS -->
+                </div>
+                
+                <div class="toolbar-actions">
+                    <button class="btn-new-folder" id="btnNewFolder">
+                        <!-- Nuova icona SVG "folder-plus" color rosa (#ec4899) -->
+                        <svg fill="#ec4899" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3v-3h2v3h3v2z"/>
+                        </svg>
+                        NEW FOLDER
+                    </button>
+                </div>
+            </section>
+
+            <!-- CONTENITORE GRIGLIA CARTELLE (Popolato da JS) -->
+            <section class="folders-grid" id="foldersGrid">
+                <!-- Le cartelle appariranno qui -->
+            </section>
+            <!-- Questo va incollato appena prima di </main> -->
+            
+            <!-- Modale per la creazione di una nuova cartella -->
+            <div id="newFolderModal" class="modal-overlay" style="display: none;">
+                <div class="modal-content">
+                    <h2>Crea Nuova Cartella</h2>
+                    <div class="input-group">
+                        <label for="folderNameInput">Nome cartella:</label>
+                        <input type="text" id="folderNameInput" placeholder="Es. Matematica">
+                    </div>
+                    <div class="input-group">
+                        <label for="folderColorInput">Scegli il colore:</label>
+                        <!-- Questo input crea il selettore di colore nativo -->
+                        <input type="color" id="folderColorInput" value="#2563eb">
+                    </div>
+                    <div class="modal-actions">
+                        <button id="btnCancelFolder" class="btn-cancel">Annulla</button>
+                        <button id="btnConfirmFolder" class="btn-confirm">Crea</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Modale per la MODIFICA e CANCELLAZIONE di una cartella -->
+            <div id="editFolderModal" class="modal-overlay" style="display: none;">
+                <div class="modal-content">
+                    <h2>Impostazioni Cartella</h2>
+                    <div class="input-group">
+                        <label for="editFolderNameInput">Nome cartella:</label>
+                        <input type="text" id="editFolderNameInput">
+                    </div>
+                    <div class="input-group">
+                        <label for="editFolderColorInput">Cambia colore:</label>
+                        <input type="color" id="editFolderColorInput">
+                    </div>
+                    <!-- Qui usiamo flex per separare il tasto elimina dagli altri -->
+                    <div class="modal-actions" style="justify-content: space-between; margin-top: 25px;">
+                        <button id="btnDeleteFolder" class="btn-delete">Elimina</button>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btnCancelEdit" class="btn-cancel">Annulla</button>
+                            <button id="btnConfirmEdit" class="btn-confirm">Salva</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Importiamo la logica JavaScript -->
+    <script src="folders.js"></script>
+</body>
+</html>
