@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Activity</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { font-family: 'Poppins', sans-serif; background-color: #fff; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        /* HEADER: Nome e Timer */
+        .game-header { text-align: center; margin-bottom: 20px; }
+        .game-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+        .timer-box { display: inline-flex; align-items: center; gap: 5px; background: #f3f4f6; padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 18px; }
+        .btn-exit { position: absolute; top: 20px; left: 20px; background: #eee; padding: 10px 15px; text-decoration: none; color: black; border-radius: 6px; font-weight: bold; }
+
+        /* CONTENITORE GIOCO */
+        .game-container { flex: 1; display: flex; gap: 20px; justify-content: center; overflow: hidden; }
+
+        /* HANGMAN STYLES */
+        .hangman-layout { display: flex; width: 100%; max-width: 1100px; gap: 20px; height: 100%; }
+
+        /* Pannello sinistro: disegno + chips errori + barra progresso */
+        .hm-left { flex: 1; background: #f0f0f0; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 24px 20px 18px; }
+        .hm-drawing-area { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        .hm-drawing-area svg { width: 100%; max-width: 230px; height: auto; stroke: #111; stroke-width: 5; fill: none; stroke-linecap: round; }
+        .hm-wrong-letters { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px 0 14px; min-height: 50px; }
+        .hm-letter-chip { background: #f9a8d4; color: #333; font-weight: bold; font-size: 15px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+        .hm-progress-track { width: 100%; background: #e5e7eb; border-radius: 99px; height: 10px; overflow: hidden; }
+        .hm-progress-fill { height: 100%; background: #ec4899; border-radius: 99px; width: 0%; transition: width 0.35s ease; }
+
+        /* Pannello destro: parola + immagine + tastiera */
+        .hm-right { flex: 1.3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden; padding: 20px; }
+        .hm-word-area { display: flex; align-items: flex-end; gap: 6px; flex-wrap: wrap; justify-content: center; }
+        .hm-char-box { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .hm-char-letter { font-size: 26px; font-weight: bold; line-height: 1; min-height: 32px; display: flex; align-items: flex-end; }
+        .hm-char-line { width: 26px; height: 3px; background: #333; }
+        .hm-word-space { width: 18px; }
+        .hm-clue-image { max-width: 320px; max-height: 220px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); object-fit: contain; }
+        .hm-keyboard { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 390px; }
+        .key { padding: 6px 10px; font-size: 13px; font-weight: bold; background: white; border: 1.5px solid #ddd; border-radius: 5px; cursor: pointer; min-width: 30px; text-align: center; transition: background 0.1s; }
+        .key:hover:not(.disabled) { background: #f5f5f5; }
+        .key.disabled { opacity: 0.4; pointer-events: none; }
+        .key.correct { background: #22c55e; color: white; border-color: #22c55e; }
+        .key.wrong { background: #f9a8d4; color: #333; border-color: #f9a8d4; }
+
+        /* CROSSWORD STYLES */
+        .crossword-layout { position: relative; display: flex; width: 100%; max-width: 1200px; gap: 20px; height: 100%; min-height: 500px; }
+        /* overflow: hidden elimina le scrollbar — la dimensione cella è calcolata via JS */
+        .cw-grid-wrapper { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: hidden; }
+        .crossword-grid { display: grid; gap: 2px; align-content: start; justify-content: start; }
+        /* --cw-cell-size viene impostato via JS in base allo spazio disponibile */
+        .cw-cell { background: white; position: relative; width: var(--cw-cell-size, 35px); height: var(--cw-cell-size, 35px); display: flex; justify-content: center; align-items: center; }
+        .cw-cell input { width: 100%; height: 100%; border: none; text-align: center; font-size: calc(var(--cw-cell-size, 35px) * 0.57); font-weight: bold; outline: none; text-transform: uppercase; background: transparent; padding: 0; color: #222; caret-color: #222; }
+        .cw-number { position: absolute; top: 1px; left: 2px; font-size: calc(var(--cw-cell-size, 35px) * 0.3); font-weight: bold; color: #444; pointer-events: none; line-height: 1; }
+
+        /* Cella di inizio parola — rosa chiaro */
+        .cw-cell.start-cell { background-color: #f9a8d4; }
+        .cw-cell.start-cell .cw-number { color: #7c3aed; }
+        .cw-cell.start-cell input { color: #222; caret-color: #222; }
+
+        /* Celle evidenziate (hover / selezione) — viola */
+        .cw-cell.highlighted { background-color: #9333ea; }
+        .cw-cell.highlighted .cw-number { color: white; }
+        .cw-cell.highlighted input { color: white; caret-color: white; }
+
+        /* Parola corretta — verde */
+        .cw-cell.cw-cell-correct { background-color: #dcfce7 !important; }
+        .cw-cell.cw-cell-correct input { color: #166534 !important; caret-color: #166534; cursor: default; }
+
+        /* Flash parola sbagliata — rosso */
+        .cw-cell.cw-cell-wrong { background-color: #fee2e2 !important; }
+        .cw-cell.cw-cell-wrong input { color: #991b1b !important; }
+
+        /* Indicatore direzione (→ ↓) sulla cella attiva */
+        .cw-dir-indicator { position: absolute; bottom: 2px; right: 2px; display: flex; flex-direction: row; gap: 2px; pointer-events: none; z-index: 5; line-height: 1; }
+        .cw-dir-active   { font-size: calc(var(--cw-cell-size, 35px) * 0.27); color: white; background: rgba(124,58,237,0.75); border-radius: 2px; padding: 0 1px; font-weight: bold; }
+        .cw-dir-inactive { font-size: calc(var(--cw-cell-size, 35px) * 0.27); color: rgba(0,0,0,0.28); }
+
+        /* Popup zoom — fixed, pannello destra, non sovrapposto alla griglia, trascinabile */
+        .cw-zoom-popup { display: none; position: fixed; top: 80px; right: 20px; transform: none; z-index: 1000; background: white; border-radius: 14px; padding: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); width: 270px; border: 3px solid #7c3aed; cursor: move; user-select: none; }
+        .cw-zoom-popup img { width: 100%; border-radius: 8px; display: block; pointer-events: none; }
+        .cw-zoom-close { position: absolute; top: 8px; right: 8px; background: #7c3aed; color: white; border: none; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 0; }
+
+        /* Pannello indizi */
+        .crossword-clues { flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; overflow-y: auto; max-height: 100%; }
+        .clue-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); cursor: pointer; transition: background 0.15s; }
+        .clue-item:hover { background: #f3e8ff; }
+        .clue-item.active { background: #7c3aed; }
+        .clue-item.active .clue-number { color: white; }
+        .clue-item.active .clue-no-image { color: rgba(255,255,255,0.6); }
+        .clue-number { font-weight: bold; font-size: 18px; width: 30px; text-align: center; flex-shrink: 0; color: #222; }
+        .clue-img-wrapper { position: relative; display: inline-block; flex-shrink: 0; }
+        .clue-img-wrapper img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; display: block; }
+        .clue-zoom-btn { position: absolute; bottom: 4px; right: 4px; background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+        .clue-no-image { font-style: italic; color: #bbb; font-size: 12px; }
+
+        /* RADIAZIONE A CATENA STYLES */
+        .rac-layout { display: flex; flex-direction: column; width: 100%; max-width: 900px; gap: 20px; overflow-y: auto; min-height: 0; }
+        .rac-progress-row { display: flex; align-items: center; gap: 16px; }
+        .rac-bar-track { flex: 1; height: 14px; background: #f3f4f6; border-radius: 99px; overflow: hidden; }
+        .rac-bar-fill { height: 100%; background: #ec4899; border-radius: 99px; transition: width 0.4s ease; }
+        .rac-counter { font-size: 14px; font-weight: bold; color: #374151; white-space: nowrap; }
+        .rac-question-card { background: white; border-radius: 12px; padding: 28px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .rac-img-wrapper { position: relative; display: block; margin-bottom: 16px; }
+        .rac-q-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; display: block; cursor: default; }
+        .rac-zoom-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.55); color: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+        .rac-zoom-btn:hover { background: rgba(0,0,0,0.8); }
+        .rac-zoom-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
+        .rac-zoom-close { position: absolute; top: 18px; right: 22px; background: none; border: none; color: white; font-size: 36px; line-height: 1; cursor: pointer; opacity: 0.8; }
+        .rac-zoom-close:hover { opacity: 1; }
+        .rac-zoom-img { max-width: 90vw; max-height: 88vh; object-fit: contain; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+        .rac-question-text { font-size: 18px; font-weight: 600; text-align: center; margin: 0; line-height: 1.4; }
+        .rac-answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .rac-answer-btn { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: white; border: 1.5px solid #e5e7eb; border-radius: 50px; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s; font-family: 'Poppins', sans-serif; font-size: 14px; }
+        .rac-answer-btn:hover:not(:disabled) { border-color: #9ca3af; }
+        .rac-answer-btn:disabled { cursor: default; }
+        .rac-answer-label { width: 28px; height: 28px; border-radius: 50%; background: #374151; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; transition: background 0.15s; }
+        .rac-answer-text { flex: 1; }
+        .rac-answer-icon { font-size: 18px; font-weight: bold; flex-shrink: 0; width: 20px; text-align: center; }
+        .rac-answer-btn.rac-correct { border-color: #22c55e; background: #f0fdf4; }
+        .rac-answer-btn.rac-correct .rac-answer-label { background: #22c55e; }
+        .rac-answer-btn.rac-correct .rac-answer-icon { color: #22c55e; }
+        .rac-answer-btn.rac-wrong { border-color: #ef4444; background: #fef2f2; }
+        .rac-answer-btn.rac-wrong .rac-answer-label { background: #ef4444; }
+        .rac-answer-btn.rac-wrong .rac-answer-icon { color: #ef4444; }
+        .rac-next-wrap { display: flex; justify-content: center; padding-bottom: 8px; }
+        .rac-next-btn { background: #7c3aed; color: white; border: none; border-radius: 50px; padding: 14px 60px; font-size: 15px; font-weight: bold; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; font-family: 'Poppins', sans-serif; transition: background 0.15s; }
+        .rac-next-btn:hover { background: #6d28d9; }
+
+        /* TROVA L'INTRUSO STYLES */
+        .ti-layout { display: flex; flex-direction: column; width: 100%; max-width: 900px; gap: 16px; overflow-y: auto; min-height: 0; }
+        .ti-instruction { border-left: 4px solid #ec4899; padding: 10px 16px; background: #fdf2f8; border-radius: 0 8px 8px 0; font-size: 14px; color: #333; }
+        .ti-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .ti-img-card { position: relative; cursor: pointer; border-radius: 10px; overflow: hidden; border: 4px solid transparent; transition: border-color 0.18s, box-shadow 0.18s; }
+        .ti-img-card:hover { box-shadow: 0 0 0 2px #d8b4fe; }
+        .ti-img-card.selected { border-color: #9333ea; }
+        .ti-img-card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+        .ti-zoom-btn { position: absolute; top: 7px; right: 7px; background: rgba(0,0,0,0.52); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; z-index: 1; }
+        .ti-zoom-btn:hover { background: rgba(0,0,0,0.82); }
+        .ti-zoom-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
+        .ti-zoom-close { position: absolute; top: 18px; right: 22px; background: none; border: none; color: white; font-size: 36px; line-height: 1; cursor: pointer; opacity: 0.8; }
+        .ti-zoom-close:hover { opacity: 1; }
+        .ti-zoom-img { max-width: 90vw; max-height: 88vh; object-fit: contain; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+        .ti-footer { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 0 4px; }
+        .ti-unlock-btn { display: flex; align-items: center; gap: 8px; background: white; border: 2px solid #9ca3af; color: #374151; padding: 10px 32px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; letter-spacing: 1.5px; text-transform: uppercase; transition: border-color 0.15s; }
+        .ti-unlock-btn:hover { border-color: #6b7280; }
+        .ti-error { border-left: 4px solid #ef4444; background: #fef2f2; color: #b91c1c; padding: 10px 16px; border-radius: 0 8px 8px 0; font-size: 14px; display: none; width: 100%; max-width: 340px; box-sizing: border-box; }
+
+        /* SE CONOSCI...RICONOSCI STYLES */
+        .scr-layout { position: relative; display: flex; width: 100%; max-width: 1200px; gap: 20px; height: 100%; }
+        .scr-grid-area { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: hidden; display: flex; align-items: flex-start; }
+        .scr-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
+        .scr-images { display: flex; flex-direction: column; gap: 10px; }
+        .scr-image-card { background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.15s; }
+        .scr-image-card:hover { background: #f3e8ff; }
+        .scr-image-card.active { background: #7c3aed; }
+        .scr-image-num { font-weight: bold; font-size: 15px; color: #222; display: block; margin-bottom: 6px; }
+        .scr-image-card.active .scr-image-num { color: white; }
+        .scr-img-wrapper { position: relative; display: block; }
+        .scr-img-wrapper img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; display: block; }
+        .cw-cell.scr-hidden-cell { background-color: #fbcfe8; }
+        .cw-cell.scr-hidden-cell.start-cell { background-color: #f9a8d4; }
+        .cw-cell.highlighted.scr-hidden-cell { background-color: #c026d3; }
+
+        /* GUESS WHAT STYLES */
+        .gw-layout { position: relative; display: flex; width: 100%; max-width: 1200px; gap: 30px; height: 100%; align-items: flex-start; overflow: hidden; }
+        .gw-image-area { flex: 1.4; display: flex; align-items: center; justify-content: center; height: 100%; overflow: hidden; }
+        .gw-img-wrapper { position: relative; display: inline-block; max-height: 100%; }
+        .gw-image { display: block; max-width: 100%; max-height: calc(100vh - 160px); border-radius: 10px; object-fit: contain; }
+        .gw-line-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; overflow: visible; }
+        .gw-answers { flex: 1; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 4px 2px 4px 0; height: 100%; }
+        .gw-input-row { display: flex; align-items: center; gap: 12px; }
+        .gw-input-num { width: 28px; height: 28px; background: #7c3aed; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
+        .gw-input { flex: 1; padding: 10px 14px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 15px; font-family: 'Poppins', sans-serif; outline: none; transition: border-color 0.15s, background 0.15s; }
+        .gw-input:focus { border-color: #7c3aed; background: #f3e8ff; }
+        .gw-input.gw-correct { border-color: #22c55e; background: #dcfce7; color: #166534; font-weight: 600; }
+        .gw-input.gw-wrong { border-color: #ef4444; background: #fee2e2; color: #991b1b; }
+        .gw-check-btn { background: #7c3aed; color: white; border: none; border-radius: 50px; padding: 12px 48px; font-size: 14px; font-weight: bold; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; font-family: 'Poppins', sans-serif; transition: background 0.15s; align-self: center; margin-top: auto; flex-shrink: 0; }
+        .gw-check-btn:hover { background: #6d28d9; }
+
+        /* PASSA E SPASSA STYLES */
+        .pps-layout { display: flex; flex-direction: column; width: 100%; max-width: 900px; gap: 16px; overflow-y: auto; min-height: 0; }
+        .pps-card { background: white; border-radius: 12px; padding: 24px 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .pps-instruction-text { font-size: 13px; color: #6b7280; font-style: italic; margin-bottom: 12px; border-left: 3px solid #ec4899; padding-left: 10px; background: #fdf2f8; padding: 8px 12px; border-radius: 0 6px 6px 0; }
+        .pps-top { display: flex; gap: 20px; align-items: flex-start; }
+        .pps-sentence { flex: 1; font-size: 16px; line-height: 3; color: #111; }
+        .pps-image { width: 160px; height: 130px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+        .pps-blank-group { display: inline-flex; align-items: flex-end; gap: 3px; vertical-align: middle; margin: 0 3px; }
+        .pps-letter-box { width: 22px; height: 28px; border: none; border-bottom: 2.5px solid #7c3aed; background: transparent; text-align: center; font-size: 14px; font-weight: bold; color: #7c3aed; font-family: 'Poppins', sans-serif; padding: 0; outline: none; caret-color: transparent; border-radius: 0; }
+        .pps-letter-box:focus { border-bottom-color: #4f46e5; background: #f3e8ff; border-radius: 3px 3px 0 0; }
+        .pps-letter-sep { font-size: 14px; font-weight: bold; color: #7c3aed; line-height: 28px; }
+        .pps-blank-group.pps-correct .pps-letter-box { border-bottom-color: #22c55e; color: #166534; background: #dcfce7; pointer-events: none; }
+        .pps-blank-group.pps-correct .pps-letter-sep { color: #166534; }
+        .pps-blank-group.pps-wrong .pps-letter-box { border-bottom-color: #ef4444; color: #991b1b; background: #fee2e2; }
+        .pps-blank-group.pps-wrong .pps-letter-sep { color: #991b1b; }
+        .pps-footer { display: flex; justify-content: center; padding: 4px 0 8px; flex-shrink: 0; }
+        .pps-check-btn { background: #7c3aed; color: white; border: none; border-radius: 50px; padding: 14px 60px; font-size: 15px; font-weight: bold; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; font-family: 'Poppins', sans-serif; transition: background 0.15s; }
+        .pps-check-btn:hover { background: #6d28d9; }
+
+        /* POPUP VITTORIA/SCONFITTA */
+        .result-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .result-modal { background: white; padding: 40px; border-radius: 16px; text-align: center; width: 400px; animation: popIn 0.3s ease-out; }
+        .result-modal h1 { font-size: 36px; margin-bottom: 10px; }
+        .result-modal.win h1 { color: #22c55e; }
+        .result-modal.lose h1 { color: #ef4444; }
+        .result-icon { font-size: 60px; margin-bottom: 20px; }
+        .btn-action { margin-top: 20px; padding: 12px 24px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; background: #000; color: white; width: 100%; margin-bottom: 10px; }
+        
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        /* ON-SCREEN KEYBOARD */
+        body.show-osk { padding-bottom: 165px; }
+        #onScreenKeyboard { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #d1d5db; padding: 8px 6px 14px; box-shadow: 0 -2px 8px rgba(0,0,0,0.18); z-index: 900; user-select: none; touch-action: manipulation; }
+        .osk-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 6px; max-width: 560px; margin-left: auto; margin-right: auto; }
+        .osk-row:last-child { margin-bottom: 0; }
+        .osk-key { flex: 1; height: 42px; background: white; border: none; border-radius: 5px; box-shadow: 0 2px 0 #9ca3af; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; color: #111827; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .osk-key:active { background: #e5e7eb; transform: translateY(1px); box-shadow: 0 1px 0 #9ca3af; }
+        .osk-action { background: #9ca3af; color: white; flex: 1.5; font-size: 13px; box-shadow: 0 2px 0 #6b7280; }
+        .osk-action:active { background: #6b7280; box-shadow: 0 1px 0 #4b5563; }
+    </style>
+</head>
+<body>
+    
+    <!-- Audio Elements for Win/Lose -->
+    <audio id="audioWin" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"></audio>
+    <audio id="audioLose" src="https://assets.mixkit.co/active_storage/sfx/3183/3183-preview.mp3"></audio>
+
+    <a href="index.html" class="btn-exit">⬅ Torna alla Dashboard</a>
+
+    <div class="game-header">
+        <div class="game-title" id="gameTitle">Caricamento...</div>
+        <div class="timer-box">
+            ⏱ <span id="timerDisplay">00:00</span>
+        </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <!-- Il motore JS inietterà il gioco qui dentro -->
+    </div>
+
+    <!-- Modale Fine Partita -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-modal" id="resultModal">
+            <div class="result-icon" id="resultIcon">🏆</div>
+            <h1 id="resultTitle">Hai Vinto!</h1>
+            <p id="resultText">Bravissimo, hai completato l'attività in tempo.</p>
+            <button type="button" id="btnNextInSeq" class="btn-action" style="background:#22c55e;display:none;">Prossimo &#8594;</button>
+            <div id="sessionWaitMsg" style="display:none;margin-top:16px;padding:12px 20px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;color:#854d0e;font-size:14px;font-weight:600;">
+                &#9203; In attesa del prossimo gioco&hellip;
+            </div>
+            <button type="button" class="btn-action" id="btnReplay" onclick="location.reload()">Rigioca</button>
+            <button type="button" class="btn-action" id="btnSolution" style="background:#7c3aed;" onclick="showSolution()">Soluzione</button>
+            <button type="button" class="btn-action" id="btnExitGame" style="background:#ccc;color:black;" onclick="window.location.href='index.html'">Esci</button>
+        </div>
+    </div>
+
+    <!-- Tastiera a schermo -->
+    <div id="onScreenKeyboard">
+        <div class="osk-row" id="oskRow1"></div>
+        <div class="osk-row" id="oskRow2"></div>
+        <div class="osk-row" id="oskRow3"></div>
+    </div>
+
+    <script src="crossword.js"></script>
+    <script src="trova-intruso.js"></script>
+    <script src="radiazione-a-catena.js"></script>
+    <script src="se-conosci-riconosci.js"></script>
+    <script src="passa-e-spassa.js"></script>
+    <script src="guess-what.js"></script>
+    <script type="module">
+        import { db } from './firebase-init.js';
+        import { collection, doc, getDocs, getDoc, setDoc, addDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+        // --- INIZIALIZZAZIONE DATI da Firestore ---
+        const activityId = new URLSearchParams(location.search).get('id');
+        let activityData = null;
+        // Cerca prima nella collection activities (nuova struttura), poi fallback su filesystem
+        const _actSnap = await getDoc(doc(db, 'activities', activityId));
+        if (_actSnap.exists()) {
+            activityData = { ..._actSnap.data(), id: _actSnap.id };
+        } else {
+            const fsSnap = await getDocs(collection(db, 'filesystem'));
+            const _fs = {};
+            fsSnap.forEach(d => { _fs[d.id] = d.data().items || []; });
+            for (const fid in _fs) {
+                const found = (_fs[fid] || []).find(item => item.id === activityId);
+                if (found) { activityData = found; break; }
+            }
+        }
+        if (!activityData) { alert("Attività non trovata!"); window.location.href = "index.html"; }
+
+        document.getElementById('gameTitle').innerText = activityData.name;
+
+        // --- REGISTRAZIONE STATISTICHE DI GIOCO in Firestore ---
+        await addDoc(collection(db, 'gameStats'), {
+            activityId: activityData.id,
+            timestamp: new Date().toISOString()
+        });
+        // -------------------------------------------------------
+
+        // --- TIMER LOGIC ---
+        const _startTimeParam = parseInt(new URLSearchParams(location.search).get('startTime') || '0', 10);
+        const _gameDurationSecs = (activityData.timerMinutes || 5) * 60;
+        let timeRemaining = _startTimeParam > 0
+            ? Math.max(0, _gameDurationSecs - Math.floor((Date.now() - _startTimeParam) / 1000))
+            : _gameDurationSecs;
+        let timerInterval;
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        function updateTimer() {
+            const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            const s = (timeRemaining % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${m}:${s}`;
+            
+            if (timeRemaining <= 0) {
+                endGame(false, "Tempo scaduto!");
+            }
+            timeRemaining--;
+        }
+
+        function startTimer() {
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // --- SOLUTION LOGIC ---
+        let solutionFn = null;
+        let solutionShown = false;
+        window.showSolution = function showSolution() {
+            solutionShown = true;
+            document.getElementById('resultOverlay').style.display = 'none';
+            if (solutionFn) solutionFn();
+            // Barra fissa con tasto Esci
+            const bar = document.createElement('div');
+            bar.id = 'solutionExitBar';
+            bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:14px 20px;background:rgba(0,0,0,0.82);display:flex;justify-content:center;z-index:1500;';
+            bar.innerHTML = '<button onclick="window.location.href=\'index.html\'" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:11px 52px;font-size:15px;font-weight:bold;cursor:pointer;font-family:Poppins,sans-serif;letter-spacing:1px;">Esci</button>';
+            document.body.appendChild(bar);
+        }
+
+        // --- WIN / LOSE LOGIC ---
+        const resultOverlay = document.getElementById('resultOverlay');
+        const resultModal = document.getElementById('resultModal');
+        const audioWin = document.getElementById('audioWin');
+        const audioLose = document.getElementById('audioLose');
+
+        function endGame(isWin, message = "") {
+            if (solutionShown) return;
+            clearInterval(timerInterval);
+            resultOverlay.style.display = 'flex';
+
+            if (isWin) {
+                resultModal.className = 'result-modal win';
+                document.getElementById('resultIcon').innerText = '🏆';
+                document.getElementById('resultTitle').innerText = 'Hai Vinto!';
+                document.getElementById('resultText').innerText = message || "Bravissimo, hai completato l'attività.";
+                audioWin.play();
+            } else {
+                resultModal.className = 'result-modal lose';
+                document.getElementById('resultIcon').innerText = '💀';
+                document.getElementById('resultTitle').innerText = 'Hai Perso!';
+                document.getElementById('resultText').innerText = message || "Ritenta, sarai più fortunato.";
+                audioLose.play();
+            }
+
+            // ── Synchronized session mode ─────────────────────────────────────
+            const _inSess = _sessUser && _currentLobby &&
+                            Array.isArray(_currentLobby.selectedUsers) &&
+                            _currentLobby.selectedUsers.includes(_sessUser);
+            if (_inSess) {
+                setDoc(doc(db, 'userStatus', _sessUser), {
+                    activityId,
+                    status:      isWin ? 'win' : 'timeout',
+                    completedAt: Date.now()
+                });
+                document.getElementById('btnNextInSeq').style.display = 'none';
+                document.getElementById('btnReplay').style.display    = 'none';
+                document.getElementById('btnSolution').style.display  = 'none';
+                document.getElementById('btnExitGame').style.display  = 'none';
+                document.getElementById('sessionWaitMsg').style.display = '';
+                return;
+            }
+
+            // ── Standard sequence mode ────────────────────────────────────────
+            const activeSeq = JSON.parse(sessionStorage.getItem('activeSequence') || 'null');
+            const btnNext = document.getElementById('btnNextInSeq');
+            if (activeSeq && activeSeq.currentIdx < activeSeq.activityIds.length - 1) {
+                btnNext.style.display = '';
+                btnNext.onclick = () => {
+                    activeSeq.currentIdx++;
+                    sessionStorage.setItem('activeSequence', JSON.stringify(activeSeq));
+                    window.location.href = `game.html?id=${activeSeq.activityIds[activeSeq.currentIdx]}`;
+                };
+            } else {
+                btnNext.style.display = 'none';
+                if (activeSeq) sessionStorage.removeItem('activeSequence');
+            }
+        }
+
+        // ── Session mode: setup lobby listener ────────────────────────────────
+        const _sessUser = sessionStorage.getItem('puzUserName');
+        let _currentLobby = null;
+        if (_sessUser) {
+            const _lobSnap = await getDoc(doc(db, 'lobby', 'current'));
+            _currentLobby = _lobSnap.exists() ? _lobSnap.data() : null;
+            let _lobbyReady = false;
+            onSnapshot(doc(db, 'lobby', 'current'), snap => {
+                const nl = snap.exists() ? snap.data() : null;
+                _currentLobby = nl;
+                if (!_lobbyReady) { _lobbyReady = true; return; }
+                if (!nl || nl.status === 'pre-game' || nl.status === 'complete') {
+                    window.location.href = 'login.html';
+                }
+            });
+        }
+
+
+        // --- ENGINE: HANGMAN ---
+        function initHangman() {
+            const container = document.getElementById('gameContainer');
+            const words = activityData.words;
+
+            let currentWordIndex = 0;
+            let currentWord = '';
+            let guessedLetters = [];
+            let mistakes = 0;
+            const maxMistakes = 6;
+
+            container.innerHTML = `
+                <div class="hangman-layout">
+                    <div class="hm-left">
+                        <div class="hm-drawing-area">
+                            <svg viewBox="0 0 240 270" xmlns="http://www.w3.org/2000/svg">
+                                <line x1="20" y1="255" x2="155" y2="255"/>
+                                <line x1="87" y1="255" x2="87" y2="15"   style="display:none;" class="hm-part hm-p1"/>
+                                <line x1="87" y1="15"  x2="185" y2="15"  style="display:none;" class="hm-part hm-p2"/>
+                                <line x1="185" y1="15" x2="185" y2="48"  style="display:none;" class="hm-part hm-p3"/>
+                                <circle cx="185" cy="78" r="28"           style="display:none;" class="hm-part hm-p4"/>
+                                <line x1="185" y1="106" x2="185" y2="178" style="display:none;" class="hm-part hm-p5"/>
+                                <path d="M185 128 L150 162 M185 128 L220 162 M185 178 L160 218 M185 178 L210 218" style="display:none;" class="hm-part hm-p6"/>
+                            </svg>
+                        </div>
+                        <div class="hm-wrong-letters" id="hmWrongLetters"></div>
+                        <div class="hm-progress-track">
+                            <div class="hm-progress-fill" id="hmProgressFill"></div>
+                        </div>
+                    </div>
+                    <div class="hm-right">
+                        <div class="hm-word-area" id="hmWord"></div>
+                        <img id="hmImage" class="hm-clue-image" src="" alt="Indizio" style="display:none;">
+                        <div id="hmKeyboard" class="hm-keyboard"></div>
+                    </div>
+                </div>
+            `;
+
+            const hmWord       = document.getElementById('hmWord');
+            const hmKeyboard   = document.getElementById('hmKeyboard');
+            const hmImage      = document.getElementById('hmImage');
+            const hmWrongLetters = document.getElementById('hmWrongLetters');
+            const hmProgressFill = document.getElementById('hmProgressFill');
+
+            function updateProgress() {
+                hmProgressFill.style.width = `${(mistakes / maxMistakes) * 100}%`;
+            }
+
+            function updateWrongLetters() {
+                hmWrongLetters.innerHTML = '';
+                guessedLetters.filter(l => !currentWord.includes(l)).forEach(l => {
+                    const chip = document.createElement('span');
+                    chip.className = 'hm-letter-chip';
+                    chip.textContent = l;
+                    hmWrongLetters.appendChild(chip);
+                });
+            }
+
+            function renderWord() {
+                hmWord.innerHTML = '';
+                let allRevealed = true;
+                for (const char of currentWord) {
+                    if (char === ' ') {
+                        const sp = document.createElement('span');
+                        sp.className = 'hm-word-space';
+                        hmWord.appendChild(sp);
+                    } else {
+                        const box = document.createElement('div');
+                        box.className = 'hm-char-box';
+                        const letter = document.createElement('span');
+                        letter.className = 'hm-char-letter';
+                        if (guessedLetters.includes(char)) {
+                            letter.textContent = char;
+                        } else {
+                            allRevealed = false;
+                        }
+                        const line = document.createElement('div');
+                        line.className = 'hm-char-line';
+                        box.appendChild(letter);
+                        box.appendChild(line);
+                        hmWord.appendChild(box);
+                    }
+                }
+                if (allRevealed && !solutionShown) {
+                    setTimeout(() => {
+                        currentWordIndex++;
+                        if (currentWordIndex >= words.length) endGame(true, "Hai indovinato tutte le parole!");
+                        else loadWord();
+                    }, 800);
+                }
+            }
+
+            function drawHangman() {
+                for (let i = 1; i <= 6; i++) {
+                    const el = document.querySelector(`.hm-p${i}`);
+                    if (el) el.style.display = mistakes >= i ? 'block' : 'none';
+                }
+                if (mistakes >= maxMistakes) {
+                    endGame(false, `La parola era: ${currentWord}`);
+                }
+            }
+
+            function handleGuess(letter, btnEl) {
+                if (document.getElementById('resultOverlay').style.display === 'flex') return;
+                if (guessedLetters.includes(letter) || mistakes >= maxMistakes) return;
+
+                guessedLetters.push(letter);
+                if (btnEl) {
+                    btnEl.classList.add('disabled');
+                    btnEl.classList.add(currentWord.includes(letter) ? 'correct' : 'wrong');
+                }
+
+                if (currentWord.includes(letter)) {
+                    renderWord();
+                } else {
+                    mistakes++;
+                    updateProgress();
+                    updateWrongLetters();
+                    drawHangman();
+                    renderWord();
+                }
+            }
+
+            // Supporto tastiera fisica
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.altKey || e.metaKey) return;
+                const letter = e.key.toUpperCase();
+                if (!/^[A-Z]$/.test(letter)) return;
+                e.preventDefault();
+                const btn = hmKeyboard.querySelector(`[data-letter="${letter}"]`);
+                handleGuess(letter, btn);
+            });
+
+            function loadWord() {
+                currentWord = words[currentWordIndex].word.toUpperCase().trim();
+                guessedLetters = [];
+                mistakes = 0;
+
+                const img = words[currentWordIndex].image;
+                if (img && img !== 'null') { hmImage.src = img; hmImage.style.display = 'block'; }
+                else { hmImage.style.display = 'none'; }
+
+                // Reset disegno impiccato
+                for (let i = 1; i <= 6; i++) {
+                    const el = document.querySelector(`.hm-p${i}`);
+                    if (el) el.style.display = 'none';
+                }
+
+                // Tastiera visiva
+                hmKeyboard.innerHTML = '';
+                for (const char of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'key';
+                    btn.textContent = char;
+                    btn.dataset.letter = char;
+                    btn.addEventListener('click', () => handleGuess(char, btn));
+                    hmKeyboard.appendChild(btn);
+                }
+
+                renderWord();
+                updateProgress();
+                updateWrongLetters();
+            }
+
+            solutionFn = () => {
+                guessedLetters = [...new Set([...currentWord].filter(c => c !== ' '))];
+                renderWord();
+                document.querySelectorAll('#hmKeyboard .key').forEach(btn => {
+                    if (currentWord.includes(btn.dataset.letter))
+                        btn.classList.add('disabled', 'correct');
+                });
+            };
+
+            loadWord();
+            startTimer();
+        }
+
+        // --- ENGINE: CROSSWORD ---
+        function initCrossword() {
+            const container = document.getElementById('gameContainer');
+
+            new Crossword(container, activityData.words, {
+                onWin:               (message) => endGame(true, message),
+                onLose:              (message) => endGame(false, message),
+                onStartTimer:        () => startTimer(),
+                onRegisterSolution:  (fn) => { solutionFn = fn; }
+            });
+        }
+
+        // --- AVVIA GIOCO ---
+        if (activityData.templateKey === 'hangman') {
+            initHangman();
+        } else if (activityData.templateKey === 'radiazione-a-catena') {
+            initRadiazione(
+                document.getElementById('gameContainer'),
+                activityData.questions || [],
+                {
+                    onWin:              (msg) => endGame(true, msg),
+                    onLose:             (msg) => endGame(false, msg),
+                    onStartTimer:       () => startTimer(),
+                    onRegisterSolution: (fn) => { solutionFn = fn; }
+                }
+            );
+        } else if (activityData.templateKey === 'trova-intruso') {
+            initTrovaIntruso(
+                document.getElementById('gameContainer'),
+                activityData.images || [],
+                {
+                    onWin:              (msg) => endGame(true, msg),
+                    onLose:             (msg) => endGame(false, msg),
+                    onStartTimer:       () => startTimer(),
+                    onRegisterSolution: (fn) => { solutionFn = fn; }
+                }
+            );
+        } else if (activityData.templateKey === 'se-conosci-riconosci') {
+            new SeConosci(
+                document.getElementById('gameContainer'),
+                activityData.words || [],
+                {
+                    hiddenSolution:     activityData.hiddenSolution || '',
+                    onWin:              (msg) => endGame(true, msg),
+                    onLose:             (msg) => endGame(false, msg),
+                    onStartTimer:       () => startTimer(),
+                    onRegisterSolution: (fn) => { solutionFn = fn; }
+                }
+            );
+        } else if (activityData.templateKey === 'guess-what') {
+            initGuessWhat(
+                document.getElementById('gameContainer'),
+                { image: activityData.image || '', labels: activityData.labels || [] },
+                {
+                    onWin:              (msg) => endGame(true, msg),
+                    onLose:             (msg) => endGame(false, msg),
+                    onStartTimer:       () => startTimer(),
+                    onRegisterSolution: (fn) => { solutionFn = fn; }
+                }
+            );
+        } else if (activityData.templateKey === 'passa-e-spassa') {
+            initPassaESpassa(
+                document.getElementById('gameContainer'),
+                activityData.phrases || [],
+                {
+                    onWin:              (msg) => endGame(true, msg),
+                    onLose:             (msg) => endGame(false, msg),
+                    onStartTimer:       () => startTimer(),
+                    onRegisterSolution: (fn) => { solutionFn = fn; }
+                }
+            );
+        } else {
+            initCrossword();
+        }
+
+        // --- ON-SCREEN KEYBOARD ---
+        // Mostra solo per giochi con input testuale; hangman ha già la propria tastiera visiva
+        const gamesNoOSK = ['radiazione-a-catena', 'trova-intruso', 'hangman'];
+        if (!gamesNoOSK.includes(activityData.templateKey || '')) {
+            document.body.classList.add('show-osk');
+            document.getElementById('onScreenKeyboard').style.display = 'block';
+        }
+
+        // Costruzione tasti QWERTY
+        ;(function() {
+            const rows = [
+                ['Q','W','E','R','T','Y','U','I','O','P'],
+                ['A','S','D','F','G','H','J','K','L'],
+                ['BACKSPACE','Z','X','C','V','B','N','M','ENTER']
+            ];
+            rows.forEach((row, i) => {
+                const rowEl = document.getElementById('oskRow' + (i + 1));
+                row.forEach(key => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = (key === 'BACKSPACE' || key === 'ENTER') ? 'osk-key osk-action' : 'osk-key';
+                    btn.textContent = key === 'BACKSPACE' ? '⌫' : key === 'ENTER' ? '↵' : key;
+                    // preventDefault su pointerdown impedisce che il click sposti il focus dall'input attivo
+                    btn.addEventListener('pointerdown', e => e.preventDefault());
+                    btn.addEventListener('click', () => handleOnScreenKey(key));
+                    rowEl.appendChild(btn);
+                });
+            });
+        })();
+
+        function handleOnScreenKey(key) {
+            const el = document.activeElement;
+            const isWritable = el &&
+                (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') &&
+                !el.readOnly && !el.disabled;
+
+            if (key === 'BACKSPACE') {
+                if (isWritable) {
+                    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }));
+                }
+                return;
+            }
+            if (key === 'ENTER') {
+                if (isWritable) {
+                    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+                }
+                return;
+            }
+            // Tasto lettera
+            if (isWritable) {
+                if (parseInt(el.maxLength) === 1) {
+                    // Input cella singola (cruciverba, passa-e-spassa, SCR)
+                    el.value = key;
+                } else {
+                    // Input testo libero (guess-what)
+                    const s  = el.selectionStart ?? el.value.length;
+                    const e2 = el.selectionEnd   ?? el.value.length;
+                    el.value = el.value.slice(0, s) + key + el.value.slice(e2);
+                    try { el.setSelectionRange(s + 1, s + 1); } catch(_) {}
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    </script>
+</body>
+</html>

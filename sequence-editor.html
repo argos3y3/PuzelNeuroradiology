@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Sequenza — Puzel</title>
+    <link rel="stylesheet" href="style.css">
+    <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');</style>
+    <script>
+        (function() {
+            var auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
+            if (!auth || auth.role !== 'admin') window.location.replace('login.html');
+        })();
+    </script>
+    <style>
+        /* ── Page layout ── */
+        .se-page {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+        .se-topbar { display: flex; align-items: center; gap: 16px; }
+        .se-back {
+            display: flex; align-items: center; gap: 6px;
+            background: none; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 7px 14px; font-size: 13px; font-weight: 600; color: #374151;
+            cursor: pointer; font-family: 'Poppins', sans-serif; transition: background .12s;
+        }
+        .se-back:hover { background: #f9fafb; }
+        .se-title { font-size: 22px; font-weight: 700; color: #111827; margin: 0; }
+
+        /* ── Name ── */
+        .se-name-wrap { display: flex; flex-direction: column; gap: 6px; }
+        .se-name-wrap label { font-size: 13px; font-weight: 600; color: #374151; }
+        .se-name-input {
+            padding: 11px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px;
+            font-size: 16px; font-family: 'Poppins', sans-serif; color: #111827;
+            outline: none; transition: border-color .15s, box-shadow .15s;
+        }
+        .se-name-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+        /* ── Steps section ── */
+        .se-steps-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 10px; }
+        .se-steps-list { display: flex; flex-direction: column; gap: 10px; }
+
+        /* ── Step card (accordion) ── */
+        .se-step {
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .se-step:hover { border-color: #d8b4fe; }
+        .se-step.open  { border-color: #c084fc; box-shadow: 0 2px 10px rgba(124,58,237,0.08); }
+
+        /* Top row of the card */
+        .se-step-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px;
+        }
+        .se-step-num {
+            font-size: 13px; font-weight: 700; color: #9ca3af;
+            min-width: 22px; text-align: center; flex-shrink: 0;
+        }
+
+        /* Type button (the clickable toggle) */
+        .se-act-btn {
+            display: flex; align-items: center; gap: 8px;
+            background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 8px;
+            padding: 8px 12px; cursor: pointer; font-family: 'Poppins', sans-serif;
+            font-size: 13px; font-weight: 600; color: #374151;
+            transition: background .12s, border-color .12s;
+            text-align: left; flex: 1; min-width: 0; overflow: hidden;
+        }
+        .se-act-btn:hover { background: #f3e8ff; border-color: #c084fc; }
+        .se-act-btn.empty { color: #9ca3af; font-weight: 500; font-style: italic; background: #f9fafb; border-color: #e5e7eb; }
+        .se-expand-arrow {
+            font-size: 9px; color: #9ca3af; flex-shrink: 0;
+            transition: transform .18s; display: inline-block;
+        }
+        .se-step.open .se-expand-arrow { transform: rotate(90deg); }
+        .se-act-btn-label { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .se-act-badge {
+            flex-shrink: 0; font-size: 11px; color: white;
+            background: #7c3aed; border-radius: 10px; padding: 1px 9px; font-weight: 700;
+        }
+        .se-change-type {
+            font-size: 11px; color: #9ca3af; cursor: pointer; flex-shrink: 0;
+            text-decoration: underline; background: none; border: none;
+            font-family: 'Poppins', sans-serif; padding: 0; transition: color .1s;
+        }
+        .se-change-type:hover { color: #7c3aed; }
+
+        /* Right-side controls */
+        .se-step-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .se-rand-wrap { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+        .se-rand-wrap input[type=checkbox] { width: 15px; height: 15px; accent-color: #7c3aed; cursor: pointer; flex-shrink: 0; }
+        .se-rand-label { font-size: 12px; color: #6b7280; white-space: nowrap; }
+        .se-step-arrows { display: flex; flex-direction: column; gap: 1px; }
+        .se-arrow {
+            background: none; border: 1px solid #e5e7eb; border-radius: 5px;
+            width: 26px; height: 22px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #6b7280; font-size: 11px; line-height: 1;
+            transition: background .1s, color .1s;
+        }
+        .se-arrow:hover { background: #f3f4f6; color: #111827; }
+        .se-arrow:disabled { opacity: 0.3; cursor: default; }
+        .se-remove {
+            background: none; border: 1px solid #fecaca; border-radius: 7px;
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #ef4444; font-size: 16px; line-height: 1;
+            transition: background .1s; flex-shrink: 0;
+        }
+        .se-remove:hover { background: #fef2f2; }
+
+        /* Expandable instance list */
+        .se-instances {
+            display: none;
+            border-top: 1px solid #f3f4f6;
+            background: #fdfcff;
+            padding: 10px 16px 14px 52px;
+        }
+        .se-step.open .se-instances { display: block; }
+        .se-inst-search-wrap { position: relative; margin-bottom: 10px; }
+        .se-inst-search {
+            width: 100%; padding: 7px 12px 7px 30px;
+            border: 1px solid #e5e7eb; border-radius: 7px;
+            font-size: 13px; font-family: 'Poppins', sans-serif; outline: none;
+            transition: border-color .15s;
+        }
+        .se-inst-search:focus { border-color: #7c3aed; }
+        .se-inst-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 13px; }
+        .se-inst-list { display: flex; flex-direction: column; gap: 2px; }
+        .se-inst-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; cursor: pointer;
+            font-size: 13px; color: #374151; user-select: none;
+            transition: background .1s;
+        }
+        .se-inst-item:hover { background: #f3e8ff; }
+        .se-inst-item input[type=checkbox] { width: 14px; height: 14px; accent-color: #7c3aed; cursor: pointer; flex-shrink: 0; }
+        .se-inst-empty { font-size: 13px; color: #9ca3af; font-style: italic; padding: 4px 0; }
+
+        /* ── Add step button ── */
+        .se-add-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            border: 2px dashed #d8b4fe; background: none; border-radius: 12px;
+            padding: 14px; font-size: 14px; font-weight: 600; color: #7c3aed;
+            cursor: pointer; font-family: 'Poppins', sans-serif;
+            transition: background .12s, border-color .12s; width: 100%;
+        }
+        .se-add-btn:hover { background: #faf5ff; border-color: #c084fc; }
+
+        /* ── Footer ── */
+        .se-footer { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; }
+        .btn-se-cancel {
+            background: #f3f4f6; border: 1px solid #d1d5db; color: #374151;
+            padding: 11px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;
+            font-family: 'Poppins', sans-serif; cursor: pointer; transition: background .12s;
+        }
+        .btn-se-cancel:hover { background: #e5e7eb; }
+        .btn-se-save {
+            background: #7c3aed; color: white; border: none;
+            padding: 11px 36px; border-radius: 10px; font-size: 14px; font-weight: 700;
+            font-family: 'Poppins', sans-serif; cursor: pointer; transition: background .15s;
+        }
+        .btn-se-save:hover { background: #6d28d9; }
+
+        /* ── Type picker modal ── */
+        #typePickerModal .modal-content {
+            width: 420px; max-height: 70vh;
+            display: flex; flex-direction: column; padding: 0;
+        }
+        .tp-head {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 22px 16px; border-bottom: 1px solid #f3f4f6; flex-shrink: 0;
+        }
+        .tp-head h2 { font-size: 18px; font-weight: 600; margin: 0; }
+        .tp-list { flex: 1; min-height: 0; overflow-y: auto; }
+        .tp-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 22px; border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; transition: background .1s; gap: 12px;
+        }
+        .tp-item:last-child { border-bottom: none; }
+        .tp-item:hover { background: #faf5ff; }
+        .tp-item-name { font-size: 15px; font-weight: 600; color: #111827; }
+        .tp-item-count { font-size: 12px; color: #9ca3af; flex-shrink: 0; }
+        .tp-empty { padding: 24px; text-align: center; color: #9ca3af; font-style: italic; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+
+    <nav class="sidebar">
+        <div class="logo"><span class="p-logo">P</span></div>
+        <ul class="nav-links">
+            <li><a href="home.html"><svg fill="currentColor" width="24" height="24" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> home</a></li>
+            <li><a href="index.html"><img src="https://img.icons8.com/material-outlined/24/000000/dashboard.png"/> activities</a></li>
+            <li><a href="folders.html"><svg fill="#000000" width="24" height="24" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm10 14H4V8h16v10z"/></svg> folders</a></li>
+            <li><a href="stats.html"><img src="https://img.icons8.com/material-outlined/24/000000/bar-chart.png"/> activity stats</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="se-page">
+            <div class="se-topbar">
+                <button type="button" class="se-back" onclick="goBack()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                    Indietro
+                </button>
+                <h1 class="se-title" id="pageTitle">Crea sequenza</h1>
+            </div>
+
+            <div class="se-name-wrap">
+                <label for="seqName">Nome sequenza</label>
+                <input type="text" id="seqName" class="se-name-input" placeholder="Es. Lezione 1 – Anatomia">
+            </div>
+
+            <div>
+                <div class="se-steps-label">Passaggi</div>
+                <div class="se-steps-list" id="stepsList"></div>
+                <div style="margin-top:10px;">
+                    <button type="button" class="se-add-btn" id="btnAddStep">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                        Aggiungi passaggio
+                    </button>
+                </div>
+            </div>
+
+            <div class="se-footer">
+                <button type="button" class="btn-se-cancel" onclick="goBack()">Annulla</button>
+                <button type="button" class="btn-se-save" id="btnSave">Salva sequenza</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ── Type picker modal ── -->
+<div id="typePickerModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="tp-head">
+            <h2>Tipo di gioco</h2>
+            <span class="close-icon" id="btnCloseTypePicker">&times;</span>
+        </div>
+        <div class="tp-list" id="typeList"></div>
+    </div>
+</div>
+
+<script type="module">
+import { db } from './firebase-init.js';
+import { collection, doc, getDocs, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+// ── Carica filesystem da Firestore (sincronizzato prima dell'init) ─────────
+const fsSnap = await getDocs(collection(db, 'filesystem'));
+const allActivities = [];
+fsSnap.forEach(d => {
+    (d.data().items || []).forEach(item => { if (item.type === 'activity') allActivities.push(item); });
+});
+allActivities.sort((a, b) => a.name.localeCompare(b.name));
+
+// ── Carica sequenza in modifica (se presente) ─────────────────────────────
+const editId = new URLSearchParams(location.search).get('id');
+let _editingSeq = null;
+if (editId) {
+    const seqSnap = await getDoc(doc(db, 'sequences', editId));
+    if (seqSnap.exists()) _editingSeq = { id: seqSnap.id, ...seqSnap.data() };
+}
+
+let steps             = [];
+let openSteps         = new Set();
+let typePickerTargetIdx = null;
+let editingSeqId      = null;
+
+// ── Data helpers ─────────────────────────────────────────────────────────
+function getTypes() {
+    const map = {};
+    allActivities.forEach(a => {
+        const t = a.activityType || 'Senza tipo';
+        map[t] = (map[t] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function getActivitiesOfType(typeName) {
+    return allActivities.filter(a => (a.activityType || 'Senza tipo') === typeName);
+}
+
+function makeStep(activityType, activities, randomize) {
+    return {
+        id:           'step_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        activityType: activityType || null,
+        activities:   activities  || [],
+        randomize:    !!randomize
+    };
+}
+
+window.goBack = function() { window.location.href = 'home.html'; };
+
+// ── Init ─────────────────────────────────────────────────────────────────
+function init() {
+    if (_editingSeq) {
+        editingSeqId = _editingSeq.id;
+        document.getElementById('pageTitle').textContent = 'Modifica sequenza';
+        document.getElementById('seqName').value = _editingSeq.name;
+        steps = (_editingSeq.steps || []).map(s => ({
+            id:           s.id || makeStep().id,
+            activityType: s.activityType || null,
+            activities:   Array.isArray(s.activities) ? s.activities : [],
+            randomize:    !!s.randomize
+        }));
+    }
+
+    if (steps.length === 0) {
+        const types = getTypes();
+        for (let i = 0; i < 3; i++) {
+            const typeName = types[i] ? types[i][0] : null;
+            const step = makeStep(typeName, [], false);
+            steps.push(step);
+            openSteps.add(step.id);
+        }
+    }
+
+    renderSteps();
+    document.getElementById('seqName').focus();
+}
+
+// ── Render ───────────────────────────────────────────────────────────────
+function renderSteps() {
+    const list = document.getElementById('stepsList');
+    list.innerHTML = '';
+
+    steps.forEach((step, idx) => {
+        const isOpen   = openSteps.has(step.id);
+        const hasType  = !!step.activityType;
+        const selCount = step.activities.length;
+
+        const div = document.createElement('div');
+        div.className = `se-step${isOpen ? ' open' : ''}`;
+        div.dataset.stepid = step.id;
+
+        const row = document.createElement('div');
+        row.className = 'se-step-row';
+        row.innerHTML = `
+            <span class="se-step-num">${idx + 1}</span>
+
+            <button type="button" class="se-act-btn${hasType ? '' : ' empty'}" data-role="toggle" data-idx="${idx}">
+                <span class="se-expand-arrow">&#9654;</span>
+                <span class="se-act-btn-label">${hasType ? step.activityType : 'Scegli tipo...'}</span>
+                ${selCount > 0 ? `<span class="se-act-badge">${selCount}</span>` : ''}
+            </button>
+            ${hasType ? `<button type="button" class="se-change-type" data-role="change" data-idx="${idx}">cambia</button>` : ''}
+
+            <div class="se-step-controls">
+                <label class="se-rand-wrap">
+                    <input type="checkbox" ${step.randomize ? 'checked' : ''} data-idx="${idx}" data-role="randomize">
+                    <span class="se-rand-label">Randomizza istanza</span>
+                </label>
+                <div class="se-step-arrows">
+                    <button type="button" class="se-arrow" data-idx="${idx}" data-role="up"   ${idx === 0                ? 'disabled' : ''}>▲</button>
+                    <button type="button" class="se-arrow" data-idx="${idx}" data-role="down" ${idx === steps.length - 1 ? 'disabled' : ''}>▼</button>
+                </div>
+                <button type="button" class="se-remove" data-idx="${idx}">×</button>
+            </div>
+        `;
+
+        const instDiv = document.createElement('div');
+        instDiv.className = 'se-instances';
+
+        if (hasType) {
+            const typeActs = getActivitiesOfType(step.activityType);
+            const searchWrap = document.createElement('div');
+            searchWrap.className = 'se-inst-search-wrap';
+            searchWrap.innerHTML = `
+                <span class="se-inst-search-icon">&#128269;</span>
+                <input type="text" class="se-inst-search" placeholder="Cerca istanza..." data-stepid="${step.id}">
+            `;
+            instDiv.appendChild(searchWrap);
+
+            const instList = document.createElement('div');
+            instList.className = 'se-inst-list';
+            instList.dataset.stepid = step.id;
+            instDiv.appendChild(instList);
+
+            function renderInstList(filter) {
+                const lc       = (filter || '').toLowerCase();
+                const filtered = lc ? typeActs.filter(a => a.name.toLowerCase().includes(lc)) : typeActs;
+                instList.innerHTML = '';
+                if (filtered.length === 0) {
+                    instList.innerHTML = `<div class="se-inst-empty">Nessuna istanza trovata.</div>`;
+                    return;
+                }
+                filtered.forEach(act => {
+                    const label = document.createElement('label');
+                    label.className = 'se-inst-item';
+                    const isChecked = step.activities.some(a => a.id === act.id);
+                    label.innerHTML = `
+                        <input type="checkbox" value="${act.id}" ${isChecked ? 'checked' : ''}>
+                        <span>${act.name}</span>
+                    `;
+                    label.querySelector('input').addEventListener('change', e => {
+                        if (e.target.checked) {
+                            if (!steps[idx].activities.some(a => a.id === act.id)) {
+                                steps[idx].activities.push({ id: act.id, name: act.name, activityType: act.activityType || '' });
+                            }
+                        } else {
+                            steps[idx].activities = steps[idx].activities.filter(a => a.id !== act.id);
+                        }
+                        refreshBadge(step.id, steps[idx].activities.length);
+                    });
+                    instList.appendChild(label);
+                });
+            }
+
+            searchWrap.querySelector('.se-inst-search').addEventListener('input', e => renderInstList(e.target.value));
+            renderInstList('');
+
+            if (typeActs.length === 0) {
+                instList.innerHTML = `<div class="se-inst-empty">Nessuna istanza disponibile per questo tipo.</div>`;
+            }
+        } else {
+            instDiv.innerHTML = `<div class="se-inst-empty">Seleziona un tipo di gioco per scegliere le istanze.</div>`;
+        }
+
+        div.appendChild(row);
+        div.appendChild(instDiv);
+        list.appendChild(div);
+    });
+
+    list.querySelectorAll('[data-role=toggle]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx  = Number(btn.dataset.idx);
+            const sid  = steps[idx].id;
+            const step = list.querySelector(`.se-step[data-stepid="${sid}"]`);
+            if (!steps[idx].activityType) { openTypePicker(idx); return; }
+            if (openSteps.has(sid)) { openSteps.delete(sid); step.classList.remove('open'); }
+            else                    { openSteps.add(sid);    step.classList.add('open');    }
+        });
+    });
+    list.querySelectorAll('[data-role=change]').forEach(btn => {
+        btn.addEventListener('click', () => openTypePicker(Number(btn.dataset.idx)));
+    });
+    list.querySelectorAll('[data-role=randomize]').forEach(cb => {
+        cb.addEventListener('change', () => { steps[Number(cb.dataset.idx)].randomize = cb.checked; });
+    });
+    list.querySelectorAll('[data-role=up]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i = Number(btn.dataset.idx);
+            if (i === 0) return;
+            [steps[i-1], steps[i]] = [steps[i], steps[i-1]];
+            renderSteps();
+        });
+    });
+    list.querySelectorAll('[data-role=down]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i = Number(btn.dataset.idx);
+            if (i >= steps.length - 1) return;
+            [steps[i], steps[i+1]] = [steps[i+1], steps[i]];
+            renderSteps();
+        });
+    });
+    list.querySelectorAll('.se-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i = Number(btn.dataset.idx);
+            openSteps.delete(steps[i].id);
+            steps.splice(i, 1);
+            renderSteps();
+        });
+    });
+}
+
+function refreshBadge(stepId, count) {
+    const stepEl = document.querySelector(`.se-step[data-stepid="${stepId}"]`);
+    if (!stepEl) return;
+    const btn   = stepEl.querySelector('[data-role=toggle]');
+    let   badge = btn.querySelector('.se-act-badge');
+    if (count > 0) {
+        if (!badge) { badge = document.createElement('span'); badge.className = 'se-act-badge'; btn.appendChild(badge); }
+        badge.textContent = count;
+    } else { badge?.remove(); }
+}
+
+// ── Add step ─────────────────────────────────────────────────────────────
+document.getElementById('btnAddStep').addEventListener('click', () => {
+    typePickerTargetIdx = steps.length;
+    renderTypeList();
+    document.getElementById('typePickerModal').style.display = 'flex';
+});
+
+// ── Type picker ───────────────────────────────────────────────────────────
+function openTypePicker(stepIdx) {
+    typePickerTargetIdx = stepIdx;
+    renderTypeList();
+    document.getElementById('typePickerModal').style.display = 'flex';
+}
+
+function closeTypePicker() {
+    document.getElementById('typePickerModal').style.display = 'none';
+    typePickerTargetIdx = null;
+}
+
+function renderTypeList() {
+    const types     = getTypes();
+    const container = document.getElementById('typeList');
+    container.innerHTML = '';
+    if (types.length === 0) {
+        container.innerHTML = '<div class="tp-empty">Nessun tipo di attività disponibile.<br>Crea prima delle attività nella sezione Activities.</div>';
+        return;
+    }
+    types.forEach(([typeName, count]) => {
+        const item = document.createElement('div');
+        item.className = 'tp-item';
+        item.innerHTML = `
+            <span class="tp-item-name">${typeName}</span>
+            <span class="tp-item-count">${count} istanz${count === 1 ? 'a' : 'e'}</span>
+        `;
+        item.addEventListener('click', () => {
+            const isNewStep = (typePickerTargetIdx === steps.length);
+            if (isNewStep) {
+                const step = makeStep(typeName, [], false);
+                steps.push(step);
+                openSteps.add(step.id);
+            } else {
+                const idx = typePickerTargetIdx;
+                if (steps[idx].activityType !== typeName) {
+                    steps[idx].activityType = typeName;
+                    steps[idx].activities   = [];
+                }
+                openSteps.add(steps[idx].id);
+            }
+            renderSteps();
+            closeTypePicker();
+        });
+        container.appendChild(item);
+    });
+}
+
+document.getElementById('btnCloseTypePicker').addEventListener('click', closeTypePicker);
+document.getElementById('typePickerModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('typePickerModal')) closeTypePicker();
+});
+
+// ── Save ─────────────────────────────────────────────────────────────────
+document.getElementById('btnSave').addEventListener('click', async () => {
+    const name = document.getElementById('seqName').value.trim();
+    if (!name) {
+        const inp = document.getElementById('seqName');
+        inp.focus(); inp.style.borderColor = '#ef4444';
+        setTimeout(() => { inp.style.borderColor = ''; }, 1500);
+        return;
+    }
+    if (steps.some(s => !s.activityType)) {
+        alert('Tutti i passaggi devono avere un tipo selezionato.');
+        return;
+    }
+    if (steps.some(s => s.activities.length === 0)) {
+        alert('Tutti i passaggi devono avere almeno un\'istanza selezionata.');
+        return;
+    }
+
+    const stepsToSave = steps.map(s => ({
+        id: s.id, activityType: s.activityType, activities: s.activities, randomize: s.randomize
+    }));
+
+    const seqId = editingSeqId || ('seq_' + Date.now());
+    const seqData = {
+        id:        seqId,
+        name,
+        createdAt: _editingSeq?.createdAt || new Date().toISOString(),
+        steps:     stepsToSave
+    };
+    await setDoc(doc(db, 'sequences', seqId), seqData);
+    window.location.href = 'home.html';
+});
+
+init();
+</script>
+</body>
+</html>

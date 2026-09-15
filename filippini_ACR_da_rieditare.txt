@@ -1,0 +1,36 @@
+Filippini ("Se Conosci...Riconosci") con nome che inizia per ACR
+già presenti su anatomiadi.eu, da rieditare manualmente.
+
+Generato il 2026-09-14 leggendo Firestore (progetto olimpiadi-radiologia).
+Totale trovati: 16, tutti nella cartella principale (Home).
+
+DA FARE per ciascuna: inserire la vera "Parola Nascosta" (parola soluzione).
+Col vecchio editor quel campo veniva sovrascritto automaticamente con le
+lettere scelte manualmente riga per riga (frecce ◀▶), quindi oggi contiene
+solo una sequenza senza senso e NON una parola reale — vedi colonna
+"hiddenSolution attuale (non valida)" sotto, a titolo di riferimento.
+
+Nome                     N.parole  hiddenSolution attuale (non valida)  Link editor
+--------------------------------------------------------------------------------------------------------
+ACRAP3CQ42               8         AGGMNRTV       https://anatomiadi.eu/editor.html?id=a_1789053948475
+ACRAP3CQ45               8         CDHIMPSV       https://anatomiadi.eu/editor.html?id=a_1789054160202
+ACRAP3CQ46               7         CWCPEMG        https://anatomiadi.eu/editor.html?id=a_1789054799761
+ACRTC2CQ19               7         CFFPSSV        https://anatomiadi.eu/editor.html?id=a_1789054971779
+ACRCTV1CQ29              4         MOTI           https://anatomiadi.eu/editor.html?id=a_1789055729637
+ACRCTV1CQ36              5         RTOPA          https://anatomiadi.eu/editor.html?id=a_1789057655178
+ACRCTV1CQ35              6         ANAFSE         https://anatomiadi.eu/editor.html?id=a_1789120695746
+ACRTC2CQ21               10        DSCGIITRAO     https://anatomiadi.eu/editor.html?id=a_1789120939869
+ACRSN1CQ02               8         EOFEIRMS       https://anatomiadi.eu/editor.html?id=a_1789128373584
+ACRSN1CQ05               5         ACLEF          https://anatomiadi.eu/editor.html?id=a_1789130548653
+ACRSN2CQ01               6         OEANGL         https://anatomiadi.eu/editor.html?id=a_1789131134024
+ACRAP2CQ43 da finire m   8         OOLIFUCN       https://anatomiadi.eu/editor.html?id=a_1789140523374
+ACRCTV2CQ30              9         NCROROAAI      https://anatomiadi.eu/editor.html?id=a_1789215947311
+ACRCTV2CQ33              7         LLAAVVO        https://anatomiadi.eu/editor.html?id=a_1789217877121
+ACRCTV2CQ34              6         OORNCT         https://anatomiadi.eu/editor.html?id=a_1789218113770
+ACRTC2CQ22               8         ORISRTAO       https://anatomiadi.eu/editor.html?id=a_1789218279368
+
+Nota: la parola soluzione da inserire deve avere la stessa lunghezza (N.parole)
+del numero di parole orizzontali dell'attività, una lettera per riga.
+
+"ACRAP2CQ43 da finire m" ha già nel nome l'annotazione "da finire": probabilmente
+è incompleta anche a prescindere da questa modifica.

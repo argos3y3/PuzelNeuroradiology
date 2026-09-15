@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accedi — Puzel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f3e8ff 0%, #ede9fe 50%, #e0f2fe 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* ── Login card ── */
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(124,58,237,0.12), 0 4px 16px rgba(0,0,0,0.08);
+            padding: 48px 44px 40px;
+            width: 100%;
+            max-width: 420px;
+            animation: fadeUp 0.4s ease-out;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 36px;
+            gap: 10px;
+        }
+        .p-logo {
+            width: 56px; height: 56px;
+            background: #7c3aed;
+            border-radius: 14px;
+            color: white;
+            font-size: 30px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+        }
+        .logo-area h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #111827;
+            letter-spacing: -0.3px;
+        }
+        .logo-area p {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: -6px;
+        }
+
+        /* ── Form ── */
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
+            color: #111827;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+        }
+
+        .error-msg {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+        .error-msg.visible { display: block; }
+
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: background 0.15s, transform 0.1s;
+            margin-top: 4px;
+        }
+        .btn-login:hover  { background: #6d28d9; }
+        .btn-login:active { transform: scale(0.98); }
+
+        /* ── Welcome screen (utente normale) ── */
+        .welcome-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            animation: fadeUp 0.4s ease-out;
+        }
+        .welcome-screen.visible { display: flex; }
+        .login-card.welcome-mode { padding: 52px 44px 44px; }
+
+        .welcome-icon {
+            font-size: 56px;
+        }
+        .welcome-screen h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.35;
+        }
+        .welcome-screen h2 span {
+            color: #7c3aed;
+        }
+        .welcome-status-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .welcome-screen p {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+            max-width: 300px;
+        }
+        .waiting-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .waiting-badge::before {
+            content: '';
+            width: 8px; height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+        .waiting-seq-name {
+            font-size: 13px; color: #7c3aed; font-weight: 600;
+        }
+        .btn-logout {
+            margin-top: 8px;
+            padding: 10px 32px;
+            background: white;
+            color: #7c3aed;
+            border: 2px solid #7c3aed;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .btn-logout:hover { background: #7c3aed; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="login-card" id="loginCard">
+
+    <!-- Logo -->
+    <div class="logo-area">
+        <div class="p-logo">P</div>
+        <h1>Puzel</h1>
+        <p>Accedi per continuare</p>
+    </div>
+
+    <!-- Login form -->
+    <div id="loginForm">
+        <div class="form-group">
+            <label for="username">Nome utente</label>
+            <input type="text" id="username" placeholder="Inserisci il nome utente" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Inserisci la password" autocomplete="current-password">
+        </div>
+        <div class="error-msg" id="errorMsg">Credenziali non corrette. Riprova.</div>
+        <button type="button" class="btn-login" id="btnLogin">Accedi</button>
+    </div>
+
+    <!-- Welcome screen per utenti non-admin -->
+    <div class="welcome-screen" id="welcomeScreen">
+        <div class="welcome-icon">👋</div>
+        <h2>Benvenuto, <span id="welcomeName"></span></h2>
+        <div class="welcome-status-area" id="welcomeStatusArea">
+            <p>Sei in attesa di essere inserito in un gioco.<br>Contatta il tuo amministratore per accedere alle attività.</p>
+        </div>
+        <button type="button" class="btn-logout" id="btnLogout">Esci</button>
+    </div>
+
+</div>
+
+<script type="module">
+import { db } from './firebase-init.js';
+import { doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+const USERS = {
+    'admin':   { password: 'admin',   role: 'admin' },
+    'utente1': { password: 'utente1', role: 'user'  },
+    'utente2': { password: 'utente2', role: 'user'  }
+};
+
+const usernameEl    = document.getElementById('username');
+const passwordEl    = document.getElementById('password');
+const errorMsg      = document.getElementById('errorMsg');
+const loginForm     = document.getElementById('loginForm');
+const welcomeScreen = document.getElementById('welcomeScreen');
+const welcomeName   = document.getElementById('welcomeName');
+const loginCard     = document.getElementById('loginCard');
+const statusArea    = document.getElementById('welcomeStatusArea');
+
+let currentUser    = null;
+let heartbeatTimer = null;
+let lobbyUnsub     = null;
+
+// ── Presenza Firestore ────────────────────────────────────────────────────
+async function updatePresence() {
+    if (!currentUser) return;
+    await setDoc(doc(db, 'presence', currentUser), { ts: Date.now() });
+}
+
+function startHeartbeat(username) {
+    currentUser = username;
+    updatePresence();
+    heartbeatTimer = setInterval(updatePresence, 5000);
+    // Ascolta cambiamenti lobby in tempo reale
+    lobbyUnsub = onSnapshot(doc(db, 'lobby', 'current'), snap => {
+        applyLobby(snap.exists() ? snap.data() : null);
+    });
+}
+
+async function stopHeartbeat() {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    if (lobbyUnsub) { lobbyUnsub(); lobbyUnsub = null; }
+    if (currentUser) {
+        await deleteDoc(doc(db, 'presence', currentUser)).catch(() => {});
+        currentUser = null;
+    }
+}
+
+// ── Stato lobby ───────────────────────────────────────────────────────────
+function applyLobby(lobby) {
+    const user = currentUser || sessionStorage.getItem('puzUserName');
+    if (!user || !lobby || !Array.isArray(lobby.selectedUsers) || !lobby.selectedUsers.includes(user)) {
+        statusArea.innerHTML = '<p>Sei in attesa di essere inserito in un gioco.<br>Contatta il tuo amministratore per accedere alle attività.</p>';
+        return;
+    }
+    const idx = lobby.currentIdx || 0;
+
+    if (lobby.status === 'complete') {
+        statusArea.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+                <div style="font-size:40px;">🎉</div>
+                <strong style="font-size:16px;color:#111827;">Challenge terminata!</strong>
+                <p>Grazie per aver partecipato. Ottimo lavoro!</p>
+            </div>`;
+        return;
+    }
+
+    if (lobby.status === 'pre-game' && lobby.currentActivityName) {
+        statusArea.innerHTML = `
+            <span class="waiting-badge">Ingresso nel gioco</span>
+            <span class="waiting-seq-name" style="font-size:15px;font-weight:700;color:#111827;">${lobby.currentActivityName}</span>
+            <span style="font-size:12px;color:#9ca3af;">${lobby.seqName || ''} &middot; attività ${idx + 1} di ${(lobby.activityIds || []).length}</span>
+        `;
+        return;
+    }
+
+    if (lobby.status === 'active' && lobby.activityIds?.length) {
+        const actId     = lobby.activityIds[idx];
+        const startTime = lobby.gameStartTime || Date.now();
+        window.location.href = `game.html?id=${actId}&startTime=${startTime}`;
+        return;
+    }
+
+    statusArea.innerHTML = `
+        <span class="waiting-badge">In attesa dell'inizio della challenge</span>
+        <span class="waiting-seq-name">${lobby.seqName || ''}</span>
+    `;
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────
+function doLogin() {
+    const user = usernameEl.value.trim().toLowerCase();
+    const pass = passwordEl.value;
+    const record = USERS[user];
+    if (!record || record.password !== pass) {
+        errorMsg.classList.add('visible');
+        passwordEl.value = '';
+        passwordEl.focus();
+        return;
+    }
+    errorMsg.classList.remove('visible');
+    if (record.role === 'admin') {
+        sessionStorage.setItem('puzAuth', JSON.stringify({ user, role: 'admin' }));
+        window.location.href = 'home.html';
+    } else {
+        sessionStorage.setItem('puzUserName', user);
+        loginForm.style.display = 'none';
+        loginCard.classList.add('welcome-mode');
+        welcomeName.textContent = user;
+        welcomeScreen.classList.add('visible');
+        startHeartbeat(user);
+    }
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────
+document.getElementById('btnLogout').addEventListener('click', async () => {
+    await stopHeartbeat();
+    sessionStorage.removeItem('puzUserName');
+    statusArea.innerHTML = '<p>Sei in attesa di essere inserito in un gioco.<br>Contatta il tuo amministratore per accedere alle attività.</p>';
+    loginForm.style.display = '';
+    loginCard.classList.remove('welcome-mode');
+    welcomeScreen.classList.remove('visible');
+    usernameEl.value = '';
+    passwordEl.value = '';
+    usernameEl.focus();
+});
+
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+[usernameEl, passwordEl].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); }));
+window.addEventListener('beforeunload', stopHeartbeat);
+
+// ── Se l'utente torna tra un gioco e l'altro ─────────────────────────────
+const returnUser = sessionStorage.getItem('puzUserName');
+if (returnUser) {
+    currentUser = returnUser;
+    loginForm.style.display = 'none';
+    loginCard.classList.add('welcome-mode');
+    welcomeName.textContent = returnUser;
+    welcomeScreen.classList.add('visible');
+    startHeartbeat(returnUser);
+}
+
+// Se già autenticato come admin, vai alla dashboard
+const existing = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
+if (existing?.role === 'admin') window.location.href = 'home.html';
+
+usernameEl.focus();
+</script>
+
+</body>
+</html>

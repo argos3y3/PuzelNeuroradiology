@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        (function() {
+            var auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
+            if (!auth || auth.role !== 'admin') window.location.replace('login.html');
+        })();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { background-color: #f9f9f9; padding: 30px; }
+        .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .btn-save { background: #ec4899; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-back { background: #ccc; color: black; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-decoration: none; }
+        
+        .settings-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+        .input-group input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; }
+        
+        .items-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .item-row { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
+        .item-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 4px; text-transform: uppercase;}
+        .item-row input[type="file"] { flex: 1; }
+        .img-preview { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; display: none; }
+        .btn-remove { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-add { background: #000; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+        .intruso-label { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+        .intruso-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #9333ea; cursor: pointer; }
+
+        /* Quiz (radiazione a catena) */
+        .question-block { flex-direction: column; gap: 10px; }
+        .qb-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .qb-header strong { font-size: 14px; color: #6b7280; }
+        .q-text { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; font-size: 14px; resize: vertical; min-height: 60px; box-sizing: border-box; }
+        .qb-answers { display: flex; flex-direction: column; gap: 6px; }
+        .qa-row { display: flex; align-items: center; gap: 8px; }
+        .qa-label { width: 24px; height: 24px; background: #374151; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
+        .qa-input { flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; font-size: 13px; }
+        .qa-correct-label { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+        .qa-correct-label input[type="radio"] { accent-color: #22c55e; cursor: pointer; }
+        .qa-remove { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 18px; padding: 0 4px; line-height: 1; }
+        .btn-add-answer { background: #f3f4f6; color: #374151; border: 1px dashed #9ca3af; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; font-family: 'Poppins'; }
+        .qb-image-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #f3f4f6; padding-top: 10px; font-size: 12px; color: #6b7280; }
+
+        /* GUESS WHAT: editor */
+        .gw-editor-img-area { background: #f3f4f6; border: 2px dashed #d1d5db; border-radius: 8px; min-height: 80px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; padding: 16px; margin-bottom: 16px; cursor: pointer; transition: border-color 0.15s; }
+        .gw-editor-img-area:hover { border-color: #7c3aed; }
+        .gw-editor-img-area input[type="file"] { display: none; }
+        .gw-editor-img-placeholder { font-size: 13px; color: #9ca3af; text-align: center; }
+        .gw-label-row { display: flex; align-items: center; gap: 10px; }
+        .gw-label-num-badge { width: 24px; height: 24px; background: #7c3aed; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0; }
+        .gw-place-btn { background: white; border: 1.5px solid #d1d5db; border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+        .gw-place-btn:hover { border-color: #7c3aed; background: #f3e8ff; }
+        .gw-place-btn.gw-placing { background: #7c3aed; border-color: #7c3aed; color: white; }
+        .gw-place-btn.gw-placed { border-color: #22c55e; color: #166534; background: #dcfce7; }
+        /* Preview area for gw */
+        .gw-preview-wrap { position: relative; display: inline-block; border-radius: 8px; overflow: hidden; }
+        .gw-preview-img { display: block; max-width: 100%; border-radius: 8px; }
+        .gw-preview-img.gw-placing-mode { cursor: crosshair; touch-action: none; }
+        .gw-preview-pin { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; background: #7c3aed; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.35); cursor: move; user-select: none; touch-action: none; z-index: 10; }
+        .gw-preview-pin.gw-pin-placing { background: #ec4899; animation: gwPulse 0.8s ease-in-out infinite alternate; }
+        @keyframes gwPulse { from { box-shadow: 0 0 0 2px rgba(236,72,153,0.4); } to { box-shadow: 0 0 0 8px rgba(236,72,153,0); } }
+        .gw-placing-hint { font-size: 12px; color: #ec4899; font-weight: 600; margin-top: 8px; text-align: center; min-height: 18px; }
+
+        /* PASSA E SPASSA: editor chips */
+        .pps-chips-label { font-size: 11px; color: #6b7280; letter-spacing: 0.5px; margin: 10px 0 6px; font-weight: 600; text-transform: uppercase; }
+        .pps-chips-container { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 34px; padding: 6px; background: #f9f9f9; border-radius: 6px; border: 1px dashed #e5e7eb; }
+        .pps-editor-chip { background: white; border: 1.5px solid #d1d5db; border-radius: 20px; padding: 4px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s; color: #374151; font-family: 'Poppins', sans-serif; }
+        .pps-editor-chip:hover { border-color: #ec4899; color: #ec4899; }
+        .pps-editor-chip.selected { background: #ec4899; border-color: #ec4899; color: white; }
+
+        /* SE CONOSCI: anteprima in tempo reale */
+        .scr-editor-body { display: flex; gap: 24px; align-items: flex-start; }
+        .scr-editor-form { flex: 1; min-width: 0; }
+        .scr-editor-preview { width: 400px; flex-shrink: 0; position: sticky; top: 30px; }
+        .scr-preview-label { font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #6b7280; text-transform: uppercase; margin-bottom: 10px; }
+        .scr-preview-wrap { background: black; padding: 16px; border-radius: 8px; overflow: auto; min-height: 80px; }
+        .prv-grid { display: grid; gap: 2px; }
+        .prv-cell { background: white; position: relative; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; color: #222; text-transform: uppercase; }
+        .prv-cell.prv-start { background-color: #f9a8d4; }
+        .prv-cell.prv-hidden { background-color: #fbcfe8; }
+        .prv-cell.prv-start.prv-hidden { background-color: #f9a8d4; }
+        .prv-num { position: absolute; top: 0; left: 1px; font-size: 6px; font-weight: bold; color: #555; pointer-events: none; line-height: 1; }
+        .prv-cell.prv-invalid { outline: 2px solid #dc2626; outline-offset: -2px; }
+        .scr-preview-empty { color: #888; font-size: 13px; padding: 30px 20px; text-align: center; margin: 0; }
+        .scr-preview-warning { background: #fef2f2; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="editor-header">
+        <div>
+            <h1 id="editorTitle">Crea Attività</h1>
+            <p>Aggiungi le parole e le immagini per il tuo gioco.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="index.html" class="btn-back">Annulla</a>
+            <button type="button" class="btn-save" id="btnSave">Salva Attività</button>
+        </div>
+    </div>
+
+    <div class="settings-panel">
+        <div class="input-group">
+            <label>Nome Attività</label>
+            <input type="text" id="activityName" placeholder="Es. Anatomia Umana">
+        </div>
+        <div class="input-group" style="flex: 0.3;">
+            <label>Timer (Minuti)</label>
+            <input type="number" id="activityTimer" value="5" min="1" max="60">
+        </div>
+    </div>
+
+    <div class="items-panel">
+        <h3 id="itemsPanelTitle">Contenuto (Parole e Immagini)</h3>
+        <div id="itemsContainer"></div>
+        <button type="button" class="btn-add" id="btnAddItem">+ Aggiungi Parola</button>
+    </div>
+
+    <script type="module">
+        import { db } from './firebase-init.js';
+        import { collection, doc, getDoc, getDocs, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId    = urlParams.get('id'); // present when editing an existing activity
+
+        // Solo la struttura cartelle + l'attività in modifica: scaricare tutte le attività con immagini blocca la pagina
+        const _fs = {};
+        {
+            const [_fsSnap, _actSnap] = await Promise.all([
+                getDocs(collection(db, 'filesystem')),
+                editId ? getDoc(doc(db, 'activities', editId)) : null
+            ]);
+            const _full = _actSnap?.exists() ? { ..._actSnap.data(), id: editId } : null;
+            _fsSnap.forEach(d => {
+                _fs[d.id] = (d.data().items || []).map(item =>
+                    (_full && item.id === editId) ? _full : item
+                );
+            });
+            if (!_fs.root) _fs.root = [];
+        }
+
+        function _findFolderForActivity(actId) {
+            for (const fid in _fs) {
+                if ((_fs[fid] || []).some(item => item.id === actId)) return fid;
+            }
+            return 'root';
+        }
+
+        const editFolderId    = editId ? _findFolderForActivity(editId) : null;
+        const editData        = editId
+            ? (_fs[editFolderId] || []).find(a => a.id === editId) || null
+            : null;
+
+        const activityTypeKey = urlParams.get('type') || editData?.templateKey || '';
+        const folderId        = urlParams.get('folder') || editFolderId || 'root';
+
+        const isTrovaIntruso  = activityTypeKey === 'trova-intruso';
+        const isRadiazione    = activityTypeKey === 'radiazione-a-catena';
+        const isSeConosci     = activityTypeKey === 'se-conosci-riconosci';
+        const isPassaESpassa  = activityTypeKey === 'passa-e-spassa';
+        const isGuessWhat     = activityTypeKey === 'guess-what';
+
+        const TITLES = {
+            'crossword':                'Crea Crucitomo',
+            'hangman':                  'Crea Il tempo è tiranno',
+            'trova-intruso':            "Crea Trova l'Intruso",
+            'radiazione-a-catena':      'Crea Radiazione a Catena',
+            'se-conosci-riconosci':     'Crea Se Conosci...Riconosci',
+            'passa-e-spassa':           'Crea Passa e Spassa',
+            'guess-what':               'Crea Guess What'
+        };
+        const EDIT_TITLES = {
+            'crossword':                'Modifica Crucitomo',
+            'hangman':                  'Modifica Il tempo è tiranno',
+            'trova-intruso':            "Modifica Trova l'Intruso",
+            'radiazione-a-catena':      'Modifica Radiazione a Catena',
+            'se-conosci-riconosci':     'Modifica Se Conosci...Riconosci',
+            'passa-e-spassa':           'Modifica Passa e Spassa',
+            'guess-what':               'Modifica Guess What'
+        };
+        const ACTIVITY_NAMES = {
+            'crossword':                'Crucitomo',
+            'hangman':                  'Il tempo è tiranno',
+            'trova-intruso':            "Trova l'Intruso",
+            'radiazione-a-catena':      'Radiazione a Catena',
+            'se-conosci-riconosci':     'Se Conosci...Riconosci',
+            'passa-e-spassa':           'Passa e Spassa',
+            'guess-what':               'Guess What'
+        };
+
+        document.getElementById('editorTitle').innerText = editId
+            ? (EDIT_TITLES[activityTypeKey] || 'Modifica Attività')
+            : (TITLES[activityTypeKey] || 'Crea Attività');
+        if (editId) document.getElementById('btnSave').textContent = 'Aggiorna Attività';
+
+        if (isTrovaIntruso) {
+            document.getElementById('itemsPanelTitle').innerText = 'Immagini';
+            document.getElementById('btnAddItem').innerText = '+ Aggiungi Immagine';
+        }
+        if (isRadiazione) {
+            document.getElementById('itemsPanelTitle').innerText = 'Domande';
+            document.getElementById('btnAddItem').innerText = '+ Aggiungi Domanda';
+        }
+        if (isPassaESpassa) {
+            document.getElementById('itemsPanelTitle').innerText = 'Frasi';
+            document.getElementById('btnAddItem').innerText = '+ Aggiungi Frase';
+        }
+        if (isGuessWhat) {
+            document.getElementById('itemsPanelTitle').innerText = 'Etichette';
+            document.getElementById('btnAddItem').innerText = '+ Aggiungi Etichetta';
+        }
+
+        const itemsContainer = document.getElementById('itemsContainer');
+        const btnAddItem = document.getElementById('btnAddItem');
+        const btnSave = document.getElementById('btnSave');
+
+        function attachFilePreview(row) {
+            const fileInput = row.querySelector('.file-input');
+            const imgPreview = row.querySelector('.img-preview');
+            if (!fileInput || !imgPreview) return;
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (imgPreview._blobUrl) URL.revokeObjectURL(imgPreview._blobUrl);
+                const blobUrl = URL.createObjectURL(file);
+                imgPreview._blobUrl = blobUrl;
+                imgPreview._file = file;
+                imgPreview.src = blobUrl;
+                imgPreview.style.display = 'block';
+            });
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => resolve(ev.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function compressBase64Image(src, maxWidth = 800, quality = 0.75) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => resolve(src);
+                img.src = src;
+            });
+        }
+
+        async function readAndCompressImage(file) {
+            const raw = await readFileAsBase64(file);
+            return compressBase64Image(raw);
+        }
+
+        // --- RADIAZIONE: aggiungi riga risposta dentro un blocco-domanda ---
+        const ansLabels = ['A','B','C','D','E','F'];
+
+        function addAnswerRow(answersContainer, groupName, idx) {
+            const aRow = document.createElement('div');
+            aRow.className = 'qa-row';
+            aRow.innerHTML = `
+                <span class="qa-label">${ansLabels[idx]}</span>
+                <input type="text" class="qa-input" placeholder="Risposta ${ansLabels[idx]}...">
+                <label class="qa-correct-label">
+                    <input type="radio" name="${groupName}" class="qa-correct"> Corretta
+                </label>
+                <button type="button" class="qa-remove" title="Rimuovi risposta">×</button>
+            `;
+            aRow.querySelector('.qa-remove').addEventListener('click', (e) => {
+                e.preventDefault();
+                const allRows = answersContainer.querySelectorAll('.qa-row');
+                if (allRows.length > 2) {
+                    aRow.remove();
+                    // ri-etichetta
+                    answersContainer.querySelectorAll('.qa-row').forEach((r, i) => {
+                        r.querySelector('.qa-label').textContent = ansLabels[i];
+                        r.querySelector('.qa-input').placeholder = `Risposta ${ansLabels[i]}...`;
+                    });
+                }
+            });
+            answersContainer.appendChild(aRow);
+        }
+
+        function createItemRow() {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+
+            if (isRadiazione) {
+                row.classList.add('question-block');
+                const groupName = 'correct_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+                row.dataset.group = groupName;
+
+                row.innerHTML = `
+                    <div class="qb-header">
+                        <strong>Domanda</strong>
+                        <button type="button" class="btn-remove">Elimina domanda</button>
+                    </div>
+                    <textarea class="q-text" placeholder="Testo della domanda..."></textarea>
+                    <div class="qb-answers"></div>
+                    <button type="button" class="btn-add-answer">+ Aggiungi risposta</button>
+                    <div class="qb-image-row">
+                        <span>Immagine (opzionale):</span>
+                        <input type="file" accept="image/png, image/jpeg" class="file-input">
+                        <img src="" class="img-preview" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ddd;display:none;">
+                    </div>
+                `;
+
+                const answersContainer = row.querySelector('.qb-answers');
+                for (let i = 0; i < 4; i++) addAnswerRow(answersContainer, groupName, i);
+
+                row.querySelector('.btn-add-answer').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const count = answersContainer.querySelectorAll('.qa-row').length;
+                    if (count < 6) addAnswerRow(answersContainer, groupName, count);
+                });
+
+                attachFilePreview(row);
+
+            } else if (isGuessWhat) {
+                row.classList.add('gw-label-row');
+                const labelIdx = gwPinPositions.length;
+                gwPinPositions.push(null);
+                row.dataset.gwIdx = labelIdx;
+
+                row.innerHTML = `
+                    <span class="gw-label-num-badge">${labelIdx + 1}</span>
+                    <input type="text" placeholder="Nome struttura..." class="word-input gw-name-input" style="flex:1;">
+                    <button type="button" class="gw-place-btn" title="Clicca per posizionare sull'immagine">📌 Posiziona</button>
+                    <button type="button" class="btn-remove" style="flex-shrink:0;">×</button>
+                `;
+
+                row.querySelector('.gw-place-btn').addEventListener('click', () => {
+                    if (typeof gwStartPlacing === 'function') gwStartPlacing(parseInt(row.dataset.gwIdx));
+                });
+
+                row.querySelector('.btn-remove').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const idx = parseInt(row.dataset.gwIdx);
+                    gwPinPositions.splice(idx, 1);
+                    row.remove();
+                    if (typeof gwRenumberRows === 'function') gwRenumberRows();
+                    if (typeof gwRenderPreviewPins === 'function') gwRenderPreviewPins();
+                });
+
+            } else if (isPassaESpassa) {
+                row.classList.add('question-block', 'pps-phrase-block');
+                const phraseCount = itemsContainer.querySelectorAll('.pps-phrase-block').length + 1;
+                row.innerHTML = `
+                    <div class="qb-header">
+                        <strong>Frase ${phraseCount}</strong>
+                        <button type="button" class="btn-remove">Elimina frase</button>
+                    </div>
+                    <label style="font-size:12px;color:#6b7280;margin-bottom:4px;display:block;">FRASE</label>
+                    <textarea class="pps-text-input q-text" placeholder="Scrivi la frase completa qui..."></textarea>
+                    <div class="pps-chips-label">SPAZI VUOTI — clicca le parole per nasconderle</div>
+                    <div class="pps-chips-container"></div>
+                    <label style="font-size:12px;color:#6b7280;margin:8px 0 4px;display:block;">INSTRUCTION (opzionale)</label>
+                    <textarea class="pps-instruction q-text" placeholder="Istruzione per lo studente..." style="min-height:44px;"></textarea>
+                    <div class="qb-image-row" style="margin-top:8px;">
+                        <span>Immagine (opzionale):</span>
+                        <input type="file" accept="image/png, image/jpeg" class="file-input">
+                        <img src="" class="img-preview" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ddd;display:none;">
+                    </div>
+                `;
+
+                const textarea    = row.querySelector('.pps-text-input');
+                const chipsDiv    = row.querySelector('.pps-chips-container');
+                const selectedBlanks = new Set();  // selected token indices
+
+                function rebuildChips() {
+                    const tokens = textarea.value.trim().split(/\s+/).filter(t => t.length > 0);
+                    chipsDiv.innerHTML = '';
+                    tokens.forEach((token, idx) => {
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'pps-editor-chip' + (selectedBlanks.has(idx) ? ' selected' : '');
+                        chip.textContent = token;
+                        chip.addEventListener('click', () => {
+                            if (selectedBlanks.has(idx)) { selectedBlanks.delete(idx); chip.classList.remove('selected'); }
+                            else { selectedBlanks.add(idx); chip.classList.add('selected'); }
+                        });
+                        chipsDiv.appendChild(chip);
+                    });
+                }
+
+                textarea.addEventListener('input', () => { selectedBlanks.clear(); rebuildChips(); });
+
+                // Expose data for save
+                row._getPhraseData = () => ({
+                    text:           textarea.value.trim(),
+                    blanks:         [...selectedBlanks].sort((a, b) => a - b),
+                    instruction:    row.querySelector('.pps-instruction').value.trim(),
+                    imgFile:        row.querySelector('.img-preview')._file || null,
+                    storedImageSrc: row.querySelector('.img-preview')._storedSrc || null
+                });
+                // Used by edit-mode pre-population to restore selected blank indices
+                row._selectBlanks = (indices) => {
+                    selectedBlanks.clear();
+                    indices.forEach(i => selectedBlanks.add(i));
+                    rebuildChips();
+                };
+
+                attachFilePreview(row);
+
+            } else if (isTrovaIntruso) {
+                row.innerHTML = `
+                    <input type="file" accept="image/png, image/jpeg" class="file-input">
+                    <img src="" class="img-preview">
+                    <label class="intruso-label">
+                        <input type="checkbox" class="intruso-check"> È intruso
+                    </label>
+                    <button type="button" class="btn-remove">Elimina</button>
+                `;
+                attachFilePreview(row);
+
+            } else {
+                row.innerHTML = `
+                    <input type="text" placeholder="Inserisci Parola (es. APPENDICE)" class="word-input">
+                    <input type="file" accept="image/png, image/jpeg" class="file-input">
+                    <img src="" class="img-preview">
+                    <button type="button" class="btn-remove">Elimina</button>
+                `;
+                attachFilePreview(row);
+            }
+
+            row.querySelector('.btn-remove').addEventListener('click', (e) => { e.preventDefault(); row.remove(); });
+            itemsContainer.appendChild(row);
+        }
+
+        btnAddItem.addEventListener('click', () => { createItemRow(); schedulePreview(); });
+
+        // Declare before createItemRow() is called to avoid temporal dead zone
+        let gwPinPositions  = [];
+        function schedulePreview() {}
+
+        // In edit mode we populate rows from saved data instead of showing blank starters
+        const initialRows = editId ? 0 : (isRadiazione ? 2 : (isTrovaIntruso ? 6 : (isPassaESpassa ? 1 : (isGuessWhat ? 3 : 3))));
+        for (let i = 0; i < initialRows; i++) createItemRow();
+
+        if (isSeConosci) {
+            // Add hidden solution field to settings panel
+            const settingsPanel = document.querySelector('.settings-panel');
+            const hiddenSolGroup = document.createElement('div');
+            hiddenSolGroup.className = 'input-group';
+            hiddenSolGroup.innerHTML = `
+                <label>Parola Nascosta (Filippini)</label>
+                <input type="text" id="hiddenSolutionInput" placeholder="Es. ANATOMIA" style="text-transform:uppercase;">
+            `;
+            settingsPanel.appendChild(hiddenSolGroup);
+
+            const itemsPanel    = document.querySelector('.items-panel');
+
+            const editorBody = document.createElement('div');
+            editorBody.className = 'scr-editor-body';
+
+            const formCol = document.createElement('div');
+            formCol.className = 'scr-editor-form';
+            formCol.appendChild(settingsPanel);
+            formCol.appendChild(itemsPanel);
+
+            const previewCol = document.createElement('div');
+            previewCol.className = 'scr-editor-preview';
+            previewCol.innerHTML = `
+                <div class="scr-preview-label">ANTEPRIMA IN TEMPO REALE</div>
+                <div class="scr-preview-warning" id="prvWarning" hidden></div>
+                <div class="scr-preview-wrap" id="prvWrap"></div>
+            `;
+
+            editorBody.appendChild(formCol);
+            editorBody.appendChild(previewCol);
+            document.body.appendChild(editorBody);
+
+            let previewTimer = null;
+            schedulePreview = function() {
+                clearTimeout(previewTimer);
+                previewTimer = setTimeout(renderPreview, 450);
+            };
+
+            // Text changes bubble up to itemsPanel or settings
+            itemsPanel.addEventListener('input', schedulePreview);
+            settingsPanel.addEventListener('input', schedulePreview);
+            // Row additions/removals
+            const mo = new MutationObserver(schedulePreview);
+            mo.observe(itemsContainer, { childList: true });
+
+            setTimeout(renderPreview, 150);
+        }
+
+        // ── GUESS WHAT: image upload + interactive pin placement ─────────────
+        let gwStartPlacing      = () => {};
+        let gwRenumberRows      = () => {};
+        let gwRenderPreviewPins = () => {};
+        let gwSetInitialImage   = () => {}; // called by edit-mode loader
+
+        if (isGuessWhat) {
+            const settingsPanel = document.querySelector('.settings-panel');
+            const itemsPanel    = document.querySelector('.items-panel');
+
+            // Image upload section injected into settings panel
+            const imgGroup = document.createElement('div');
+            imgGroup.className = 'input-group';
+            imgGroup.style.flex = '2';
+            imgGroup.innerHTML = `
+                <label>Immagine (obbligatoria)</label>
+                <div class="gw-editor-img-area" id="gwImgArea">
+                    <input type="file" id="gwImgFileInput" accept="image/png,image/jpeg">
+                    <span class="gw-editor-img-placeholder" id="gwImgPlaceholder">📁 Clicca per caricare l'immagine</span>
+                </div>
+            `;
+            settingsPanel.appendChild(imgGroup);
+
+            const gwImgArea        = document.getElementById('gwImgArea');
+            const gwImgFileInput   = document.getElementById('gwImgFileInput');
+            let   gwImageFile      = null;
+            let   gwImageBlobUrl   = null;
+
+            gwImgArea.addEventListener('click', () => gwImgFileInput.click());
+            gwImgFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (gwImageBlobUrl) URL.revokeObjectURL(gwImageBlobUrl);
+                gwImageFile = file;
+                gwImageBlobUrl = URL.createObjectURL(file);
+                // Update display without destroying the file input (keep it in DOM for save)
+                const placeholder = document.getElementById('gwImgPlaceholder');
+                if (placeholder) placeholder.style.display = 'none';
+                let thumb = gwImgArea.querySelector('.gw-img-thumb');
+                if (!thumb) {
+                    thumb = document.createElement('img');
+                    thumb.className = 'gw-img-thumb';
+                    thumb.style.cssText = 'max-width:100%;max-height:160px;border-radius:6px;object-fit:contain;display:block;';
+                    gwImgArea.appendChild(thumb);
+                }
+                thumb.src = gwImageBlobUrl;
+                gwRenderPreviewPins();
+            });
+
+            // Two-column layout
+            const editorBody = document.createElement('div');
+            editorBody.className = 'scr-editor-body';
+            const formCol = document.createElement('div');
+            formCol.className = 'scr-editor-form';
+            formCol.appendChild(settingsPanel);
+            formCol.appendChild(itemsPanel);
+            const previewCol = document.createElement('div');
+            previewCol.className = 'scr-editor-preview';
+            previewCol.innerHTML = `
+                <div class="scr-preview-label">ANTEPRIMA IN TEMPO REALE</div>
+                <div id="gwPreviewContainer" style="position:relative;display:inline-block;max-width:100%;">
+                    <p class="scr-preview-empty" id="gwPreviewEmpty">Carica un'immagine per iniziare</p>
+                </div>
+                <div class="gw-placing-hint" id="gwPlacingHint"></div>
+            `;
+            editorBody.appendChild(formCol);
+            editorBody.appendChild(previewCol);
+            document.body.appendChild(editorBody);
+
+            const gwPreviewContainer = document.getElementById('gwPreviewContainer');
+            const gwPlacingHint      = document.getElementById('gwPlacingHint');
+            let   gwPreviewImg       = null;
+            let   gwPlacingIdx       = null; // which label index is being placed
+
+            // ── Render/refresh all pins in the preview ─────────────────
+            gwRenderPreviewPins = function() {
+                // Remove old pins
+                gwPreviewContainer.querySelectorAll('.gw-preview-pin').forEach(p => p.remove());
+                if (!gwImageBlobUrl) return;
+
+                // Ensure preview image exists
+                if (!gwPreviewImg) {
+                    document.getElementById('gwPreviewEmpty')?.remove();
+                    gwPreviewImg = document.createElement('img');
+                    gwPreviewImg.className = 'gw-preview-img';
+                    gwPreviewImg.src = gwImageBlobUrl;
+                    gwPreviewContainer.insertBefore(gwPreviewImg, gwPreviewContainer.firstChild);
+
+                    // Click on image to place a pin
+                    gwPreviewImg.addEventListener('click', (e) => {
+                        if (gwPlacingIdx === null) return;
+                        const rect = gwPreviewImg.getBoundingClientRect();
+                        const x = ((e.clientX - rect.left) / rect.width)  * 100;
+                        const y = ((e.clientY - rect.top)  / rect.height) * 100;
+                        gwPinPositions[gwPlacingIdx] = { x, y };
+                        gwEndPlacing();
+                        gwRenderPreviewPins();
+                        gwUpdatePlaceButtons();
+                    });
+                } else {
+                    gwPreviewImg.src = gwImageBlobUrl;
+                }
+
+                // Draw pins
+                const rows = itemsContainer.querySelectorAll('.gw-label-row');
+                rows.forEach((row, i) => {
+                    const idx = parseInt(row.dataset.gwIdx);
+                    const pos = gwPinPositions[idx];
+                    if (!pos) return;
+                    const pin = document.createElement('div');
+                    pin.className = 'gw-preview-pin';
+                    pin.textContent = i + 1;
+                    pin.style.left = pos.x + '%';
+                    pin.style.top  = pos.y + '%';
+                    pin.dataset.gwIdx = idx;
+                    gwMakePinDraggable(pin, idx);
+                    gwPreviewContainer.appendChild(pin);
+                });
+            };
+
+            // ── Make a pin draggable to reposition ─────────────────────
+            function gwMakePinDraggable(pin, idx) {
+                let dragging = false, startX, startY, origX, origY;
+
+                pin.addEventListener('pointerdown', (e) => {
+                    if (gwPlacingIdx !== null) return;
+                    e.preventDefault();
+                    dragging = true;
+                    pin.setPointerCapture(e.pointerId);
+                    startX = e.clientX; startY = e.clientY;
+                    origX  = gwPinPositions[idx].x;
+                    origY  = gwPinPositions[idx].y;
+                });
+                pin.addEventListener('pointermove', (e) => {
+                    if (!dragging) return;
+                    const rect = gwPreviewImg.getBoundingClientRect();
+                    const dx = (e.clientX - startX) / rect.width  * 100;
+                    const dy = (e.clientY - startY) / rect.height * 100;
+                    gwPinPositions[idx] = {
+                        x: Math.max(0, Math.min(100, origX + dx)),
+                        y: Math.max(0, Math.min(100, origY + dy))
+                    };
+                    pin.style.left = gwPinPositions[idx].x + '%';
+                    pin.style.top  = gwPinPositions[idx].y + '%';
+                });
+                pin.addEventListener('pointerup', () => { dragging = false; });
+            }
+
+            // ── Placement mode ──────────────────────────────────────────
+            gwStartPlacing = function(idx) {
+                gwPlacingIdx = idx;
+                gwPreviewImg?.classList.add('gw-placing-mode');
+                gwPlacingHint.textContent = `Clicca sull'immagine per posizionare l'etichetta ${idx + 1}`;
+                // Highlight the pin being placed if it already has a position
+                gwPreviewContainer.querySelectorAll('.gw-preview-pin').forEach(p => {
+                    p.classList.toggle('gw-pin-placing', parseInt(p.dataset.gwIdx) === idx);
+                });
+            };
+
+            function gwEndPlacing() {
+                gwPlacingIdx = null;
+                gwPreviewImg?.classList.remove('gw-placing-mode');
+                gwPlacingHint.textContent = '';
+            }
+
+            // ── Update 📌 button states after placement ─────────────────
+            function gwUpdatePlaceButtons() {
+                const rows = itemsContainer.querySelectorAll('.gw-label-row');
+                rows.forEach(row => {
+                    const idx = parseInt(row.dataset.gwIdx);
+                    const btn = row.querySelector('.gw-place-btn');
+                    if (!btn) return;
+                    if (gwPinPositions[idx]) {
+                        btn.classList.remove('gw-placing');
+                        btn.classList.add('gw-placed');
+                        btn.textContent = '✅ Riposiziona';
+                    } else {
+                        btn.classList.remove('gw-placed', 'gw-placing');
+                        btn.textContent = '📌 Posiziona';
+                    }
+                });
+            }
+
+            // ── Renumber rows after a delete ────────────────────────────
+            gwRenumberRows = function() {
+                const rows = itemsContainer.querySelectorAll('.gw-label-row');
+                rows.forEach((row, i) => {
+                    row.dataset.gwIdx = i;
+                    const badge = row.querySelector('.gw-label-num-badge');
+                    if (badge) badge.textContent = i + 1;
+                });
+            };
+
+            // Watch for label text changes to keep preview buttons synced
+            itemsPanel.addEventListener('input', gwUpdatePlaceButtons);
+
+            // ── Called by edit-mode loader to show a stored image ───────
+            gwSetInitialImage = function(src) {
+                gwImageBlobUrl = src; // base64 data URL is valid as an img src
+                const placeholder = document.getElementById('gwImgPlaceholder');
+                if (placeholder) placeholder.style.display = 'none';
+                let thumb = gwImgArea.querySelector('.gw-img-thumb');
+                if (!thumb) {
+                    thumb = document.createElement('img');
+                    thumb.className = 'gw-img-thumb';
+                    thumb.style.cssText = 'max-width:100%;max-height:160px;border-radius:6px;object-fit:contain;display:block;';
+                    gwImgArea.appendChild(thumb);
+                }
+                thumb.src = src;
+                gwRenderPreviewPins();
+                gwUpdatePlaceButtons();
+            };
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        function renderPreview() {
+            const prvWrap    = document.getElementById('prvWrap');
+            const prvWarning = document.getElementById('prvWarning');
+            if (!prvWrap) return;
+
+            const words = [];
+            document.querySelectorAll('.word-input').forEach(inp => {
+                const w = inp.value.trim().toUpperCase().replace(/\s/g, '');
+                if (w.length > 1) words.push(w);
+            });
+
+            if (words.length === 0) {
+                prvWrap.innerHTML = '<p class="scr-preview-empty">Aggiungi parole per vedere l\'anteprima</p>';
+                if (prvWarning) prvWarning.hidden = true;
+                return;
+            }
+
+            // The intersection letter for each word is found automatically from the
+            // hidden solution word typed by the teacher (same logic used in-game).
+            const hiddenSol = (document.getElementById('hiddenSolutionInput')?.value || '')
+                              .toUpperCase().replace(/\s/g, '');
+            const notFoundRows = [];
+            const hiddenPos = words.map((text, i) => {
+                const ch = hiddenSol[i] || '';
+                const f  = ch ? text.indexOf(ch) : -1;
+                if (f < 0) notFoundRows.push(i);
+                return f >= 0 ? f : 0;
+            });
+
+            // Warn when the hidden solution doesn't line up 1:1 with the words
+            if (prvWarning) {
+                const warnings = [];
+                if (hiddenSol.length !== words.length) {
+                    warnings.push(`La Parola Nascosta ha ${hiddenSol.length} lettere ma ci sono ${words.length} parole: devono corrispondere una a una.`);
+                }
+                notFoundRows.forEach(i => {
+                    const ch = hiddenSol[i];
+                    warnings.push(ch
+                        ? `Riga ${i + 1} ("${words[i]}") non contiene la lettera "${ch}".`
+                        : `Riga ${i + 1} ("${words[i]}") non ha una lettera corrispondente nella Parola Nascosta.`);
+                });
+                prvWarning.hidden = warnings.length === 0;
+                if (warnings.length > 0) prvWarning.innerHTML = '⚠️ ' + warnings.join('<br>⚠️ ');
+            }
+
+            const hiddenCol = Math.max(...hiddenPos, 0);
+            const placements = words.map((text, i) => ({
+                text, hiddenPos: hiddenPos[i], startX: hiddenCol - hiddenPos[i], idx: i + 1
+            }));
+
+            // Build grid data
+            const gridInfo = new Map();
+            placements.forEach((p, row) => {
+                for (let k = 0; k < p.text.length; k++) gridInfo.set(`${p.startX + k},${row}`, p.text[k]);
+            });
+            const totalCols = Math.max(...placements.map(p => p.startX + p.text.length));
+            const totalRows = words.length;
+
+            // Render grid
+            prvWrap.innerHTML = '<div class="prv-grid" id="prvGrid"></div>';
+            const grid = document.getElementById('prvGrid');
+            grid.style.gridTemplateColumns = `repeat(${totalCols}, 22px)`;
+            grid.style.gridTemplateRows    = `repeat(${totalRows}, 22px)`;
+
+            gridInfo.forEach((char, key) => {
+                const [x, y] = key.split(',').map(Number);
+                const isStart   = x === placements[y].startX;
+                const isHidden  = x === hiddenCol;
+                const isInvalid = notFoundRows.includes(y);
+                const cell = document.createElement('div');
+                let cls = 'prv-cell';
+                if (isStart)   cls += ' prv-start';
+                if (isHidden)  cls += ' prv-hidden';
+                if (isInvalid) cls += ' prv-invalid';
+                cell.className = cls;
+                cell.style.gridColumn = x + 1;
+                cell.style.gridRow    = y + 1;
+                cell.textContent = char;
+                if (isStart) {
+                    const num = document.createElement('span');
+                    num.className = 'prv-num';
+                    num.textContent = placements[y].idx;
+                    cell.appendChild(num);
+                }
+                grid.appendChild(cell);
+            });
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        // ── EDIT MODE: pre-populate the editor with saved activity data ───────
+        if (editData) {
+            document.getElementById('activityName').value  = editData.name || '';
+            document.getElementById('activityTimer').value = editData.timerMinutes || 5;
+
+            if (isGuessWhat) {
+                // Pre-create label rows then load image
+                gwPinPositions = [];
+                (editData.labels || []).forEach((label) => {
+                    createItemRow();
+                    const rows = itemsContainer.querySelectorAll('.gw-label-row');
+                    const row  = rows[rows.length - 1];
+                    if (row) {
+                        const inp = row.querySelector('.gw-name-input');
+                        if (inp) inp.value = label.name || '';
+                        const idx = parseInt(row.dataset.gwIdx);
+                        gwPinPositions[idx] = { x: label.x, y: label.y };
+                    }
+                });
+                if (editData.image) {
+                    gwSetInitialImage(editData.image);
+                    // Keep reference for save so we can skip re-encoding if image unchanged
+                    const gwImgAreaEl = document.getElementById('gwImgArea');
+                    if (gwImgAreaEl) gwImgAreaEl._storedImage = editData.image;
+                }
+
+            } else if (isPassaESpassa) {
+                (editData.phrases || []).forEach(phrase => {
+                    createItemRow();
+                    const row = itemsContainer.lastElementChild;
+                    const textarea = row.querySelector('.pps-text-input');
+                    if (textarea) {
+                        textarea.value = phrase.text || '';
+                        textarea.dispatchEvent(new Event('input')); // rebuild chips
+                        if (row._selectBlanks) row._selectBlanks(phrase.blanks || []);
+                    }
+                    const instrEl = row.querySelector('.pps-instruction');
+                    if (instrEl) instrEl.value = phrase.instruction || '';
+                    if (phrase.image && phrase.image !== 'null') {
+                        const preview = row.querySelector('.img-preview');
+                        if (preview) { preview.src = phrase.image; preview.style.display = 'block'; preview._storedSrc = phrase.image; }
+                    }
+                });
+
+            } else if (isRadiazione) {
+                (editData.questions || []).forEach(q => {
+                    createItemRow();
+                    const row = itemsContainer.lastElementChild;
+                    const qText = row.querySelector('.q-text');
+                    if (qText) qText.value = q.question || '';
+                    const ansContainer = row.querySelector('.qb-answers');
+                    const groupName    = row.dataset.group;
+                    ansContainer.innerHTML = '';
+                    (q.answers || []).forEach((ans, i) => {
+                        addAnswerRow(ansContainer, groupName, i);
+                        const aRow = ansContainer.lastElementChild;
+                        if (aRow) {
+                            aRow.querySelector('.qa-input').value = ans;
+                            if (i === q.correctIndex) aRow.querySelector('.qa-correct').checked = true;
+                        }
+                    });
+                    if (q.image) {
+                        const preview = row.querySelector('.img-preview');
+                        if (preview) { preview.src = q.image; preview.style.display = 'block'; preview._storedSrc = q.image; }
+                    }
+                });
+
+            } else if (isTrovaIntruso) {
+                (editData.images || []).forEach(img => {
+                    createItemRow();
+                    const row = itemsContainer.lastElementChild;
+                    const preview = row.querySelector('.img-preview');
+                    if (preview && img.image) { preview.src = img.image; preview.style.display = 'block'; preview._storedSrc = img.image; }
+                    const check = row.querySelector('.intruso-check');
+                    if (check) check.checked = !!img.isIntruso;
+                });
+
+            } else {
+                // crossword, hangman, se-conosci (words + optional images)
+                (editData.words || []).forEach(w => {
+                    createItemRow();
+                    const row = itemsContainer.lastElementChild;
+                    const wordInput = row.querySelector('.word-input');
+                    if (wordInput) wordInput.value = w.word || '';
+                    if (w.image) {
+                        const preview = row.querySelector('.img-preview');
+                        if (preview) { preview.src = w.image; preview.style.display = 'block'; preview._storedSrc = w.image; }
+                    }
+                });
+                if (isSeConosci) {
+                    const hiddenSolEl = document.getElementById('hiddenSolutionInput');
+                    if (hiddenSolEl) hiddenSolEl.value = editData.hiddenSolution || '';
+                    schedulePreview();
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
+        btnSave.addEventListener('click', async () => {
+            btnSave.disabled = true;
+            btnSave.textContent = 'Salvataggio...';
+
+            const name = document.getElementById('activityName').value.trim() || 'Attività Senza Nome';
+            const timer = parseInt(document.getElementById('activityTimer').value) || 5;
+            const rows = document.querySelectorAll('.item-row');
+
+            const fileSystem = _fs;
+
+            function toMeta(item) {
+                if (!item || item.type !== 'activity') return item;
+                const { id, type, name: n, activityType, templateKey, date, timerMinutes } = item;
+                return { id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes };
+            }
+
+            const newActivity = {
+                id: 'a_' + Date.now(),
+                type: 'activity',
+                name: name,
+                activityType: ACTIVITY_NAMES[activityTypeKey] || activityTypeKey,
+                templateKey: activityTypeKey,
+                date: new Date().toLocaleString('it-IT').slice(0, 16).replace(',', ''),
+                timerMinutes: timer
+            };
+
+            try {
+                async function resolveImage(imgPreview) {
+                    if (imgPreview?._file)      return readAndCompressImage(imgPreview._file);
+                    if (imgPreview?._storedSrc) return compressBase64Image(imgPreview._storedSrc);
+                    return null;
+                }
+
+                if (isRadiazione) {
+                    let questionsArray = [];
+                    for (const qBlock of document.querySelectorAll('.question-block')) {
+                        const qText = qBlock.querySelector('.q-text').value.trim();
+                        if (!qText) continue;
+                        const answers = [];
+                        let correctIndex = 0;
+                        qBlock.querySelectorAll('.qa-row').forEach((aRow) => {
+                            const text = aRow.querySelector('.qa-input').value.trim();
+                            if (text) {
+                                if (aRow.querySelector('.qa-correct').checked) correctIndex = answers.length;
+                                answers.push(text);
+                            }
+                        });
+                        if (answers.length < 2) continue;
+                        const imageSrc = await resolveImage(qBlock.querySelector('.img-preview'));
+                        questionsArray.push({ question: qText, answers, correctIndex, image: imageSrc });
+                    }
+                    if (questionsArray.length === 0) { alert("Devi inserire almeno una domanda con testo e almeno 2 risposte!"); return; }
+                    newActivity.questions = questionsArray;
+
+                } else if (isGuessWhat) {
+                    const gwImgFileEl   = document.getElementById('gwImgFileInput');
+                    const gwImgFile     = gwImgFileEl?.files?.[0];
+                    const gwImgAreaEl   = document.getElementById('gwImgArea');
+                    const storedGwImage = gwImgAreaEl?._storedImage || null;
+                    if (!gwImgFile && !storedGwImage) { alert("Devi caricare un'immagine!"); return; }
+                    const labelRows = document.querySelectorAll('.gw-label-row');
+                    const gwLabels  = [];
+                    for (let i = 0; i < labelRows.length; i++) {
+                        const lName = labelRows[i].querySelector('.gw-name-input')?.value.trim();
+                        if (!lName) continue;
+                        const idx = parseInt(labelRows[i].dataset.gwIdx);
+                        const pos = gwPinPositions[idx];
+                        if (!pos) { alert(`L'etichetta "${lName}" non è stata posizionata sull'immagine!`); return; }
+                        gwLabels.push({ name: lName, x: Math.round(pos.x * 100) / 100, y: Math.round(pos.y * 100) / 100 });
+                    }
+                    if (gwLabels.length === 0) { alert("Devi inserire almeno un'etichetta posizionata!"); return; }
+                    newActivity.image  = gwImgFile ? await readAndCompressImage(gwImgFile) : await compressBase64Image(storedGwImage);
+                    newActivity.labels = gwLabels;
+
+                } else if (isPassaESpassa) {
+                    let phrasesArray = [];
+                    for (const block of document.querySelectorAll('.pps-phrase-block')) {
+                        if (!block._getPhraseData) continue;
+                        const { text, blanks, instruction, imgFile, storedImageSrc } = block._getPhraseData();
+                        if (!text || blanks.length === 0) continue;
+                        let imageSrc = null;
+                        if (imgFile) imageSrc = await readAndCompressImage(imgFile);
+                        else if (storedImageSrc) imageSrc = await compressBase64Image(storedImageSrc);
+                        phrasesArray.push({ text, blanks, instruction, image: imageSrc });
+                    }
+                    if (phrasesArray.length === 0) { alert("Devi inserire almeno una frase con degli spazi vuoti selezionati!"); return; }
+                    newActivity.phrases = phrasesArray;
+
+                } else if (isTrovaIntruso) {
+                    let imagesArray = [];
+                    for (const row of rows) {
+                        const imgPreview = row.querySelector('.img-preview');
+                        const imageSrc   = await resolveImage(imgPreview);
+                        if (imageSrc) {
+                            imagesArray.push({ image: imageSrc, isIntruso: row.querySelector('.intruso-check').checked });
+                        }
+                    }
+                    if (imagesArray.length < 2) { alert("Devi inserire almeno 2 immagini!"); return; }
+                    newActivity.images = imagesArray;
+
+                } else {
+                    let wordsArray = [];
+                    for (const row of rows) {
+                        const word     = row.querySelector('.word-input').value.trim().toUpperCase();
+                        const imgSrc   = await resolveImage(row.querySelector('.img-preview'));
+                        if (word !== '') wordsArray.push({ word, image: imgSrc });
+                    }
+                    if (wordsArray.length === 0) { alert("Devi inserire almeno una parola!"); return; }
+                    newActivity.words = wordsArray;
+                    if (isSeConosci) {
+                        const hiddenSolution = (document.getElementById('hiddenSolutionInput')?.value || '')
+                            .trim().toUpperCase().replace(/\s/g, '');
+
+                        const resetSaveBtn = () => {
+                            btnSave.disabled = false;
+                            btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
+                        };
+
+                        if (hiddenSolution.length !== wordsArray.length) {
+                            alert(`La Parola Nascosta ("${hiddenSolution}") ha ${hiddenSolution.length} lettere, ma ci sono ${wordsArray.length} parole. Deve avere esattamente una lettera per ogni parola.`);
+                            resetSaveBtn();
+                            return;
+                        }
+
+                        const lettereMancanti = [];
+                        wordsArray.forEach((w, i) => {
+                            const ch = hiddenSolution[i];
+                            if (!w.word.includes(ch)) {
+                                lettereMancanti.push(`riga ${i + 1} ("${w.word}") non contiene la lettera "${ch}"`);
+                            }
+                        });
+                        if (lettereMancanti.length > 0) {
+                            alert(`Alcune lettere della Parola Nascosta non compaiono nella parola corrispondente:\n- ${lettereMancanti.join('\n- ')}`);
+                            resetSaveBtn();
+                            return;
+                        }
+
+                        newActivity.hiddenSolution = hiddenSolution;
+                    }
+                }
+
+                // Save or update
+                if (editId) {
+                    const targetFolder = fileSystem[folderId] || [];
+                    const actIdx = targetFolder.findIndex(a => a.id === editId);
+                    const fullActivity = {
+                        ...(actIdx >= 0 ? fileSystem[folderId][actIdx] : {}),
+                        name: newActivity.name,
+                        timerMinutes: newActivity.timerMinutes,
+                        ...(newActivity.questions  !== undefined && { questions:  newActivity.questions }),
+                        ...(newActivity.image      !== undefined && { image:      newActivity.image }),
+                        ...(newActivity.labels     !== undefined && { labels:     newActivity.labels }),
+                        ...(newActivity.phrases    !== undefined && { phrases:    newActivity.phrases }),
+                        ...(newActivity.images     !== undefined && { images:     newActivity.images }),
+                        ...(newActivity.words      !== undefined && { words:      newActivity.words }),
+                        ...(newActivity.hiddenSolution !== undefined && { hiddenSolution: newActivity.hiddenSolution })
+                    };
+                    if (actIdx >= 0) fileSystem[folderId][actIdx] = fullActivity;
+
+                    await Promise.all([
+                        setDoc(doc(db, 'activities', editId), { ...fullActivity, folderId }),
+                        setDoc(doc(db, 'filesystem', folderId), { items: (fileSystem[folderId] || []).map(toMeta) })
+                    ]);
+                    alert("Attività aggiornata con successo!");
+                } else {
+                    if (!fileSystem[folderId]) fileSystem[folderId] = [];
+                    fileSystem[folderId].push({ ...newActivity, folderId });
+
+                    await Promise.all([
+                        setDoc(doc(db, 'activities', newActivity.id), { ...newActivity, folderId }),
+                        setDoc(doc(db, 'filesystem', folderId), { items: (fileSystem[folderId] || []).map(toMeta) })
+                    ]);
+                    alert("Attività salvata con successo!");
+                }
+                window.location.href = 'index.html';
+            } catch (err) {
+                console.error('Errore salvataggio:', err);
+                alert('Errore durante il salvataggio: ' + (err.message || err));
+            } finally {
+                btnSave.disabled = false;
+                btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
+            }
+        });
+    </script>
+</body>
+</html>

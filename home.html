@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home — Puzel</title>
+    <link rel="stylesheet" href="style.css">
+    <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');</style>
+    <script>
+        (function() {
+            var auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
+            if (!auth || auth.role !== 'admin') window.location.replace('login.html');
+        })();
+    </script>
+    <style>
+        /* Confirm delete */
+        #deleteConfirmModal .modal-content { width: 380px; text-align: center; padding: 32px; }
+        #deleteConfirmModal h3 { margin-bottom: 10px; font-size: 18px; }
+        #deleteConfirmModal p  { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+        .btn-del-confirm { background: #ef4444; color: white; border: none; padding: 9px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; }
+        .btn-del-confirm:hover { background: #dc2626; }
+        .btn-seq-cancel { background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+
+    <nav class="sidebar">
+        <div class="logo"><span class="p-logo">P</span></div>
+        <ul class="nav-links">
+            <li class="active">
+                <a href="home.html">
+                    <svg fill="currentColor" width="24" height="24" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    home
+                </a>
+            </li>
+            <li>
+                <a href="index.html">
+                    <img src="https://img.icons8.com/material-outlined/24/000000/dashboard.png"/>
+                    activities
+                </a>
+            </li>
+            <li>
+                <a href="folders.html">
+                    <svg fill="#000000" width="24" height="24" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm10 14H4V8h16v10z"/></svg>
+                    folders
+                </a>
+            </li>
+            <li>
+                <a href="stats.html">
+                    <img src="https://img.icons8.com/material-outlined/24/000000/bar-chart.png"/>
+                    activity stats
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <header class="main-header">
+            <h1>home</h1>
+        </header>
+
+        <section class="controls-area" style="margin-bottom: 24px;">
+            <div class="action-buttons">
+                <button type="button" class="btn-create" id="btnCreateSeq">+ CREA SEQUENZA</button>
+            </div>
+        </section>
+
+        <section class="activities-table-container">
+            <table class="activities-table">
+                <thead>
+                    <tr>
+                        <th>DATA CREAZIONE</th>
+                        <th>NOME SEQUENZA</th>
+                        <th>PASSAGGI</th>
+                        <th>AZIONI</th>
+                    </tr>
+                </thead>
+                <tbody id="seqTableBody"></tbody>
+            </table>
+        </section>
+    </main>
+</div>
+
+<!-- ── Delete confirm modal ── -->
+<div id="deleteConfirmModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <h3>Elimina sequenza</h3>
+        <p>Sei sicuro di voler eliminare questa sequenza?<br>L'operazione non può essere annullata.</p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button type="button" class="btn-seq-cancel" id="btnCancelDelete">Annulla</button>
+            <button type="button" class="btn-del-confirm" id="btnConfirmDelete">Elimina</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { db } from './firebase-init.js';
+import { collection, doc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+let sequences    = [];
+let deleteTarget = null;
+
+// ── Carica sequenze da Firestore ──────────────────────────────────────────
+async function loadSequences() {
+    const snap = await getDocs(collection(db, 'sequences'));
+    sequences = [];
+    snap.forEach(d => sequences.push({ id: d.id, ...d.data() }));
+    sequences.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+}
+
+function fmtDate(iso) {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────
+function renderTable() {
+    const tbody = document.getElementById('seqTableBody');
+    if (sequences.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-message">Nessuna sequenza creata. Usa il pulsante "Crea sequenza" per iniziare.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '';
+    [...sequences].reverse().forEach(seq => {
+        const stepCount = (seq.steps || []).length;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${fmtDate(seq.createdAt)}</td>
+            <td>${seq.name}</td>
+            <td style="color:#9ca3af;font-size:13px;">${stepCount} passaggi</td>
+            <td>
+                <div class="action-icons">
+                    <img src="https://img.icons8.com/material-outlined/18/22c55e/play.png"
+                         title="Riproduci" style="cursor:pointer;"
+                         onclick="playSequence('${seq.id}')">
+                    <img src="https://img.icons8.com/material-outlined/18/aaaaaa/pencil.png"
+                         title="Modifica" style="cursor:pointer;"
+                         onclick="openEdit('${seq.id}')">
+                    <img src="https://img.icons8.com/material-outlined/18/aaaaaa/trash.png"
+                         title="Elimina" style="cursor:pointer;"
+                         onclick="confirmDelete('${seq.id}')">
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ── Globals per onclick inline ─────────────────────────────────────────────
+window.playSequence = function(seqId) {
+    const seq = sequences.find(s => s.id === seqId);
+    if (!seq || !(seq.steps || []).length) { alert('La sequenza non contiene passaggi.'); return; }
+    window.location.href = `lobby.html?seqId=${seqId}`;
+};
+window.openEdit = function(seqId) {
+    window.location.href = `sequence-editor.html?id=${seqId}`;
+};
+window.confirmDelete = function(seqId) {
+    deleteTarget = seqId;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+};
+
+function closeDeleteModal() {
+    document.getElementById('deleteConfirmModal').style.display = 'none';
+    deleteTarget = null;
+}
+
+document.getElementById('btnCreateSeq').addEventListener('click', () => {
+    window.location.href = 'sequence-editor.html';
+});
+document.getElementById('btnCancelDelete').addEventListener('click', closeDeleteModal);
+document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+    if (!deleteTarget) return;
+    await deleteDoc(doc(db, 'sequences', deleteTarget)).catch(console.error);
+    sequences = sequences.filter(s => s.id !== deleteTarget);
+    renderTable();
+    closeDeleteModal();
+});
+document.getElementById('deleteConfirmModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('deleteConfirmModal')) closeDeleteModal();
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────
+await loadSequences();
+renderTable();
+</script>
+</body>
+</html>
