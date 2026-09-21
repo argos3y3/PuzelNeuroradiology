@@ -927,7 +927,10 @@
             function toMeta(item) {
                 if (!item || item.type !== 'activity') return item;
                 const { id, type, name: n, activityType, templateKey, date, timerMinutes, timerSeconds } = item;
-                return { id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes, timerSeconds };
+                return {
+                    id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes,
+                    ...(timerSeconds !== undefined && { timerSeconds })
+                };
             }
 
             const newActivity = {
