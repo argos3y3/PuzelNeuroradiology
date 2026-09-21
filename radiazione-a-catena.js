@@ -6,6 +6,7 @@ function initRadiazione(container, questions, callbacks) {
 
     function render() {
         answered = false;
+        callbacks.onStartTimer();
         const q = questions[currentIdx];
         const pct = Math.round(((currentIdx + 1) / questions.length) * 100);
         const isLast = currentIdx === questions.length - 1;
@@ -126,5 +127,4 @@ function initRadiazione(container, questions, callbacks) {
     });
 
     render();
-    callbacks.onStartTimer();
 }

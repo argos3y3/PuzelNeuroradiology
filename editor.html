@@ -110,7 +110,11 @@
         </div>
         <div class="input-group" style="flex: 0.3;">
             <label>Timer (Minuti)</label>
-            <input type="number" id="activityTimer" value="5" min="1" max="60">
+            <input type="number" id="activityTimer" value="5" min="0" max="60">
+        </div>
+        <div class="input-group" style="flex: 0.3;">
+            <label>Timer (Secondi)</label>
+            <input type="number" id="activityTimerSeconds" value="0" min="0" max="59">
         </div>
     </div>
 
@@ -805,7 +809,8 @@
         // ── EDIT MODE: pre-populate the editor with saved activity data ───────
         if (editData) {
             document.getElementById('activityName').value  = editData.name || '';
-            document.getElementById('activityTimer').value = editData.timerMinutes || 5;
+            document.getElementById('activityTimer').value        = editData.timerMinutes ?? 5;
+            document.getElementById('activityTimerSeconds').value = editData.timerSeconds ?? 0;
 
             if (isGuessWhat) {
                 // Pre-create label rows then load image
@@ -905,15 +910,24 @@
             btnSave.textContent = 'Salvataggio...';
 
             const name = document.getElementById('activityName').value.trim() || 'Attività Senza Nome';
-            const timer = parseInt(document.getElementById('activityTimer').value) || 5;
+            const timerParsed        = parseInt(document.getElementById('activityTimer').value);
+            const timerSecondsParsed = parseInt(document.getElementById('activityTimerSeconds').value);
+            const timer        = Number.isNaN(timerParsed) ? 5 : Math.max(0, timerParsed);
+            const timerSeconds = Number.isNaN(timerSecondsParsed) ? 0 : Math.min(59, Math.max(0, timerSecondsParsed));
+            if (timer === 0 && timerSeconds === 0) {
+                alert("Il timer non può essere 0 minuti e 0 secondi.");
+                btnSave.disabled = false;
+                btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
+                return;
+            }
             const rows = document.querySelectorAll('.item-row');
 
             const fileSystem = _fs;
 
             function toMeta(item) {
                 if (!item || item.type !== 'activity') return item;
-                const { id, type, name: n, activityType, templateKey, date, timerMinutes } = item;
-                return { id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes };
+                const { id, type, name: n, activityType, templateKey, date, timerMinutes, timerSeconds } = item;
+                return { id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes, timerSeconds };
             }
 
             const newActivity = {
@@ -923,7 +937,8 @@
                 activityType: ACTIVITY_NAMES[activityTypeKey] || activityTypeKey,
                 templateKey: activityTypeKey,
                 date: new Date().toLocaleString('it-IT').slice(0, 16).replace(',', ''),
-                timerMinutes: timer
+                timerMinutes: timer,
+                timerSeconds: timerSeconds
             };
 
             try {
@@ -1049,6 +1064,7 @@
                         ...(actIdx >= 0 ? fileSystem[folderId][actIdx] : {}),
                         name: newActivity.name,
                         timerMinutes: newActivity.timerMinutes,
+                        timerSeconds: newActivity.timerSeconds,
                         ...(newActivity.questions  !== undefined && { questions:  newActivity.questions }),
                         ...(newActivity.image      !== undefined && { image:      newActivity.image }),
                         ...(newActivity.labels     !== undefined && { labels:     newActivity.labels }),

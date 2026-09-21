@@ -301,7 +301,7 @@
 
         // --- TIMER LOGIC ---
         const _startTimeParam = parseInt(new URLSearchParams(location.search).get('startTime') || '0', 10);
-        const _gameDurationSecs = (activityData.timerMinutes || 5) * 60;
+        const _gameDurationSecs = (activityData.timerMinutes ?? 5) * 60 + (activityData.timerSeconds ?? 0);
         let timeRemaining = _startTimeParam > 0
             ? Math.max(0, _gameDurationSecs - Math.floor((Date.now() - _startTimeParam) / 1000))
             : _gameDurationSecs;
@@ -312,14 +312,20 @@
             const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
             const s = (timeRemaining % 60).toString().padStart(2, '0');
             timerDisplay.innerText = `${m}:${s}`;
-            
+
             if (timeRemaining <= 0) {
                 endGame(false, "Tempo scaduto!");
             }
             timeRemaining--;
         }
 
+        // Restartable: games like "radiazione a catena" call this again on every
+        // question to give each one the full configured time.
         function startTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timeRemaining = _gameDurationSecs;
+            }
             updateTimer();
             timerInterval = setInterval(updateTimer, 1000);
         }

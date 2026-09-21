@@ -1,4 +1,12 @@
 function initTrovaIntruso(container, images, callbacks) {
+    // Randomize the on-screen order on every play, so the intruder's position
+    // isn't memorizable across attempts.
+    images = [...images];
+    for (let i = images.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [images[i], images[j]] = [images[j], images[i]];
+    }
+
     container.innerHTML = `
         <div class="ti-layout">
             <div class="ti-instruction">Seleziona le strutture appartenenti alla stessa categoria!</div>
