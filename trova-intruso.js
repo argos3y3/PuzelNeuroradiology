@@ -73,15 +73,15 @@ function initTrovaIntruso(container, images, callbacks) {
     });
 
     tiUnlock.addEventListener('click', () => {
-        const intrusoIndices = new Set(
-            images.map((item, idx) => item.isIntruso ? idx : -1).filter(i => i >= 0)
+        const nonIntrusoIndices = new Set(
+            images.map((item, idx) => item.isIntruso ? -1 : idx).filter(i => i >= 0)
         );
 
-        const correct = selected.size === intrusoIndices.size &&
-                        [...selected].every(i => intrusoIndices.has(i));
+        const correct = selected.size === nonIntrusoIndices.size &&
+                        [...selected].every(i => nonIntrusoIndices.has(i));
 
         if (correct) {
-            callbacks.onWin('Hai trovato tutti gli intrusi!');
+            callbacks.onWin('Hai selezionato correttamente tutte le strutture della stessa categoria!');
         } else {
             tiError.style.display = 'block';
         }
@@ -90,7 +90,7 @@ function initTrovaIntruso(container, images, callbacks) {
     callbacks.onRegisterSolution?.(() => {
         const cards = [...document.querySelectorAll('.ti-img-card')];
         images.forEach((item, idx) => {
-            cards[idx]?.classList.toggle('selected', !!item.isIntruso);
+            cards[idx]?.classList.toggle('selected', !item.isIntruso);
         });
         tiError.style.display = 'none';
     });
