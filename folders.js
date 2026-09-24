@@ -4,8 +4,14 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
 
 // --- STATO ---
+const auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
+const isAgente = auth?.role === 'agente';
+const AGENTE_FOLDER_ID = 'agente_selezione';
+
 let fileSystem  = { root: [] };
-let currentPath = JSON.parse(localStorage.getItem('puzzelFoldersState')) || [{ id: 'root', name: '🏠 Home' }];
+let currentPath = isAgente
+    ? [{ id: AGENTE_FOLDER_ID, name: '🎯 Selezione Agente' }]
+    : (JSON.parse(localStorage.getItem('puzzelFoldersState')) || [{ id: 'root', name: '🏠 Home' }]);
 
 // --- ELEMENTI DOM ---
 const gridEl       = document.getElementById('foldersGrid');
@@ -41,7 +47,10 @@ function renderGrid() {
     const itemsToRender   = fileSystem[currentFolderId] || [];
 
     if (itemsToRender.length === 0) {
-        gridEl.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color: #888; padding: 20px;">Questa directory è vuota. Crea qualcosa dalla Dashboard o un nuovo folder!</p>';
+        const emptyMsg = isAgente
+            ? 'Nessuna attività disponibile al momento.'
+            : 'Questa directory è vuota. Crea qualcosa dalla Dashboard o un nuovo folder!';
+        gridEl.innerHTML = `<p style="grid-column: 1/-1; text-align:center; color: #888; padding: 20px;">${emptyMsg}</p>`;
         return;
     }
 
@@ -88,7 +97,7 @@ function createFolderCard(folder) {
 function createActivityCard(activity) {
     const card = document.createElement('div');
     card.className = 'folder-card activity-card';
-    card.setAttribute('draggable', 'true');
+    if (!isAgente) card.setAttribute('draggable', 'true');
     card.dataset.id = activity.id;
 
     const ACTIVITY_SVGS = {
@@ -118,9 +127,11 @@ function createActivityCard(activity) {
         showActivityPopup(activity, card.querySelector('.btn-settings'));
     });
 
-    card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', activity.id); });
-    card.addEventListener('dragend',   () => card.classList.remove('dragging'));
-    ['dragover', 'dragenter', 'dragleave', 'drop'].forEach(ev => card.addEventListener(ev, e => e.preventDefault()));
+    if (!isAgente) {
+        card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', activity.id); });
+        card.addEventListener('dragend',   () => card.classList.remove('dragging'));
+        ['dragover', 'dragenter', 'dragleave', 'drop'].forEach(ev => card.addEventListener(ev, e => e.preventDefault()));
+    }
 
     gridEl.appendChild(card);
 }
@@ -148,6 +159,7 @@ function renderBreadcrumbs() {
 }
 
 function enterFolder(id, name) {
+    if (isAgente) return;
     currentPath.push({ id, name });
     localStorage.setItem('puzzelFoldersState', JSON.stringify(currentPath));
     renderBreadcrumbs();
@@ -155,6 +167,7 @@ function enterFolder(id, name) {
 }
 
 function navigateToBreadcrumb(index) {
+    if (isAgente) return;
     currentPath = currentPath.slice(0, index + 1);
     localStorage.setItem('puzzelFoldersState', JSON.stringify(currentPath));
     renderBreadcrumbs();
@@ -210,7 +223,9 @@ let activePopup = null;
 function showActivityPopup(activity, anchorEl) {
     if (activePopup) { activePopup.remove(); activePopup = null; }
     const popup = document.createElement('div');
-    popup.innerHTML = `
+    popup.innerHTML = isAgente
+        ? `<button type="button" class="popup-btn" data-action="play">▶ Gioca</button>`
+        : `
         <button type="button" class="popup-btn" data-action="play">▶ Gioca</button>
         <button type="button" class="popup-btn" data-action="edit">✏ Modifica</button>
         <button type="button" class="popup-btn popup-btn-danger" data-action="delete">🗑 Elimina</button>
@@ -297,8 +312,19 @@ if (btnDeleteFolder) btnDeleteFolder.addEventListener('click', () => {
     editModal.style.display = 'none';
 });
 
+// --- RESTRIZIONI RUOLO AGENTE ---
+function applyAgenteRestrictions() {
+    if (!isAgente) return;
+    document.getElementById('btnNewFolder')?.style.setProperty('display', 'none');
+    document.querySelector('.info-banner')?.style.setProperty('display', 'none');
+    document.querySelectorAll('.nav-links li').forEach(li => {
+        if (!li.querySelector('a[href="folders.html"]')) li.style.display = 'none';
+    });
+}
+
 // --- AVVIO ---
 async function init() {
+    applyAgenteRestrictions();
     fileSystem = await loadFileSystem();
     renderBreadcrumbs();
     renderGrid();

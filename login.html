@@ -244,9 +244,10 @@ import { db } from './firebase-init.js';
 import { doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
 
 const USERS = {
-    'admin':   { password: 'admin',   role: 'admin' },
-    'utente1': { password: 'utente1', role: 'user'  },
-    'utente2': { password: 'utente2', role: 'user'  }
+    'admin':   { password: 'admin',   role: 'admin'  },
+    'agente':  { password: 'agente',  role: 'agente' },
+    'utente1': { password: 'utente1', role: 'user'   },
+    'utente2': { password: 'utente2', role: 'user'   }
 };
 
 const usernameEl    = document.getElementById('username');
@@ -344,6 +345,9 @@ function doLogin() {
     if (record.role === 'admin') {
         sessionStorage.setItem('puzAuth', JSON.stringify({ user, role: 'admin' }));
         window.location.href = 'home.html';
+    } else if (record.role === 'agente') {
+        sessionStorage.setItem('puzAuth', JSON.stringify({ user, role: 'agente' }));
+        window.location.href = 'folders.html';
     } else {
         sessionStorage.setItem('puzUserName', user);
         loginForm.style.display = 'none';
@@ -384,7 +388,8 @@ if (returnUser) {
 
 // Se già autenticato come admin, vai alla dashboard
 const existing = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
-if (existing?.role === 'admin') window.location.href = 'home.html';
+if (existing?.role === 'admin')  window.location.href = 'home.html';
+if (existing?.role === 'agente') window.location.href = 'folders.html';
 
 usernameEl.focus();
 </script>
