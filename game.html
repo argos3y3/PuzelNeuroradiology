@@ -274,6 +274,7 @@
 
         // --- INIZIALIZZAZIONE DATI da Firestore ---
         const activityId = new URLSearchParams(location.search).get('id');
+        const _solutionOnly = new URLSearchParams(location.search).get('solution') === '1';
         let activityData = null;
         // Cerca prima nella collection activities (nuova struttura), poi fallback su filesystem
         const _actSnap = await getDoc(doc(db, 'activities', activityId));
@@ -293,10 +294,13 @@
         document.getElementById('gameTitle').innerText = activityData.name;
 
         // --- REGISTRAZIONE STATISTICHE DI GIOCO in Firestore ---
-        await addDoc(collection(db, 'gameStats'), {
-            activityId: activityData.id,
-            timestamp: new Date().toISOString()
-        });
+        // Aprire la sola soluzione non conta come partita giocata
+        if (!_solutionOnly) {
+            await addDoc(collection(db, 'gameStats'), {
+                activityId: activityData.id,
+                timestamp: new Date().toISOString()
+            });
+        }
         // -------------------------------------------------------
 
         // --- TIMER LOGIC ---
@@ -678,9 +682,16 @@
         // --- ON-SCREEN KEYBOARD ---
         // Mostra solo per giochi con input testuale; hangman ha già la propria tastiera visiva
         const gamesNoOSK = ['radiazione-a-catena', 'trova-intruso', 'hangman'];
-        if (!gamesNoOSK.includes(activityData.templateKey || '')) {
+        if (!gamesNoOSK.includes(activityData.templateKey || '') && !_solutionOnly) {
             document.body.classList.add('show-osk');
             document.getElementById('onScreenKeyboard').style.display = 'block';
+        }
+
+        // --- MODALITÀ SOLO SOLUZIONE (?solution=1) ---
+        if (_solutionOnly) {
+            clearInterval(timerInterval);
+            document.querySelector('.timer-box').style.display = 'none';
+            showSolution();
         }
 
         // Costruzione tasti QWERTY

@@ -121,11 +121,22 @@ function createActivityCard(activity) {
         <span class="folder-stats">${activity.activityType}</span>
     `;
 
-    card.addEventListener('dblclick', () => window.location.href = `game.html?id=${activity.id}`);
-    card.querySelector('.btn-settings').addEventListener('click', e => {
-        e.stopPropagation();
-        showActivityPopup(activity, card.querySelector('.btn-settings'));
-    });
+    const settingsBtn = card.querySelector('.btn-settings');
+    if (isAgente) {
+        card.style.cursor = 'pointer';
+        settingsBtn.title = 'Mostra soluzione';
+        card.addEventListener('click', () => window.location.href = `game.html?id=${activity.id}`);
+        settingsBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            window.location.href = `game.html?id=${activity.id}&solution=1`;
+        });
+    } else {
+        card.addEventListener('dblclick', () => window.location.href = `game.html?id=${activity.id}`);
+        settingsBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            showActivityPopup(activity, settingsBtn);
+        });
+    }
 
     if (!isAgente) {
         card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', activity.id); });
@@ -223,9 +234,7 @@ let activePopup = null;
 function showActivityPopup(activity, anchorEl) {
     if (activePopup) { activePopup.remove(); activePopup = null; }
     const popup = document.createElement('div');
-    popup.innerHTML = isAgente
-        ? `<button type="button" class="popup-btn" data-action="play">▶ Gioca</button>`
-        : `
+    popup.innerHTML = `
         <button type="button" class="popup-btn" data-action="play">▶ Gioca</button>
         <button type="button" class="popup-btn" data-action="edit">✏ Modifica</button>
         <button type="button" class="popup-btn popup-btn-danger" data-action="delete">🗑 Elimina</button>
