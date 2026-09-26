@@ -1,0 +1,49 @@
+Attività da sistemare su anatomiadi.eu — generato il 2026-09-26
+
+======================================================================
+A) 22 attività SENZA zona/difficoltà (nome non interpretabile)
+   Non verranno mai proposte da play.html finché qualcuno non apre
+   l'attività nell'editor e sceglie zona del corpo + difficoltà.
+======================================================================
+
+Nomi fuori convenzione (probabilmente CW + SN + livello, con un "1" di troppo):
+  CW1SN2CQ01v  CW1SN2CQ02v  CW1SN2CQ03v  CW1SN2CQ04v  CW1SN2CQ05v
+  CW1SN3CQ01v  CW1SN3CQ02v  CW1SN3CQ03v
+  -> sono gli unici crucitomi di sistema nervoso: valorizzarli copre SN-2 e SN-3.
+
+Probabili refusi nel nome:
+  RCCTC1AF02      (CTV-1?)
+  RCTV2AM02       (CTV-2?)
+  INTRATCMS1F02   (AP + TC + MS, livello 1?)
+  INTRCQ01v       (zona e livello mancanti)
+
+Esempi / prove / senza nome (da eliminare o completare):
+  crucitomo_esempio_1, radiazione_catena_esempio_1, trova_intruso_esempio_1,
+  se_conosci_esempio_1, guess_esempio_1, passa_esempio_1, tiranno_esempio_1,
+  prova, Attività Senza Nome (x2, Guess What)
+
+======================================================================
+B) 26 esercizi PERSI dall'elenco — RIPRISTINATI il 2026-09-26
+   Esistevano nel database ma non comparivano in nessuna cartella.
+   Quasi tutti inseriti il 22/09 pomeriggio: persi per salvataggi
+   contemporanei di più specializzandi (problema ora corretto in
+   editor, cartelle e dashboard). Sono stati rimessi nella cartella
+   principale con zona/difficoltà dedotte dal nome: conviene che
+   qualcuno li riapra per controllare che siano completi.
+======================================================================
+
+  16/09  ACRAP2CQ44        16/09  ACRAP3CQ41
+  22/09  PSPMS2CQ06        22/09  PSPSN3CQ03        22/09  PSPMS1CQ05
+  22/09  PSPTC1CQ08        22/09  PSPMS2CQ05        22/09  PSPAP3CQ01
+  22/09  RCAP3MC01         22/09  RCCTV3AM01        22/09  RCAP2MC02
+  22/09  RCMS2GR03         22/09  RCCTV2AM01        22/09  RCCTV3AF02
+  22/09  RCMS2GR02         22/09  RCSN3RF01         22/09  RCCTV2MP03
+  22/09  RCTC2MN04         22/09  RCAP2FA02
+  22/09  INTRMS3AF08       22/09  INTRTCSN2AF21     22/09  INTRAPCTV2AF27
+  22/09  INTRSNTCMS2AF36
+  22/09  GWMS1MP37         22/09  GWTC3MP18
+  22/09  TTCTV3CQ28
+
+Le altre 29 attività fuori elenco sono doppioni (es. 10 copie di
+INTRTCMS2AF04 del 21/09) o prove ("asdasd", "esempio"): non vanno
+ripristinate.

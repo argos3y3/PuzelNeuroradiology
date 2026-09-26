@@ -1,7 +1,10 @@
 import { db } from './firebase-init.js';
 import {
-    collection, doc, getDocs, getDoc, setDoc, deleteDoc, writeBatch
+    collection, doc, getDocs, getDoc, setDoc, deleteDoc, writeBatch, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+// Copies of activities shown to the 'agente' role: never an activity's home folder
+const AGENTE_FOLDER_ID = 'agente_selezione';
 
 // --- STATO ---
 let fileSystem = { root: [] };
@@ -57,12 +60,21 @@ async function loadFileSystem() {
     return fs;
 }
 
-async function saveState() {
-    const batch = writeBatch(db);
-    for (const fid in fileSystem) {
-        batch.set(doc(db, 'filesystem', fid), { items: fileSystem[fid] || [] });
-    }
-    await batch.commit();
+// Apply a change to some folder docs atomically, starting from their current server
+// state, so concurrent saves from the editor (or other admins) are never overwritten.
+async function mutateFolders(fids, mutate) {
+    const ids = [...new Set(fids)];
+    const result = await runTransaction(db, async (tx) => {
+        const data = {};
+        for (const fid of ids) {
+            const snap = await tx.get(doc(db, 'filesystem', fid));
+            data[fid] = snap.exists() ? (snap.data().items || []) : [];
+        }
+        mutate(data);
+        for (const fid of ids) tx.set(doc(db, 'filesystem', fid), { items: data[fid] });
+        return data;
+    });
+    Object.assign(fileSystem, result);
 }
 
 // --- UTILITIES ---
@@ -191,6 +203,7 @@ function getActivitiesToRender() {
     let activities = [];
     if (currentViewingFolderId === 'root') {
         for (const folderId in fileSystem) {
+            if (folderId === AGENTE_FOLDER_ID) continue;
             (fileSystem[folderId] || []).filter(item => item.type === 'activity').forEach(act => {
                 act.parentFolderName = getFolderName(folderId);
                 activities.push(act);
@@ -259,6 +272,7 @@ function filterDashboardTable() {
 // --- MODALE AZIONI ---
 function findActivityLocation(actId) {
     for (const folderId in fileSystem) {
+        if (folderId === AGENTE_FOLDER_ID) continue;
         const act = fileSystem[folderId].find(item => item.id === actId);
         if (act) return { folderId, activity: act };
     }
@@ -334,12 +348,15 @@ if (btnCopyActivity) {
         const fullCopy = { ...sourceData, id: newId, name: newName, date: newDate, folderId: targetFolderId };
         await setDoc(doc(db, 'activities', newId), fullCopy).catch(console.error);
 
-        // Aggiungi solo metadati al filesystem in memoria
+        // Aggiungi solo metadati alla cartella
         const metaCopy = { id: newId, type: 'activity', name: newName,
                            activityType: sourceData.activityType, templateKey: sourceData.templateKey,
                            date: newDate, timerMinutes: sourceData.timerMinutes };
-        fileSystem[targetFolderId].push(metaCopy);
-        saveState();
+        for (const k of ['timerSeconds', 'zones', 'difficulty']) {
+            if (sourceData[k] !== undefined) metaCopy[k] = sourceData[k];
+        }
+        await mutateFolders([targetFolderId], data => { data[targetFolderId].push(metaCopy); })
+            .catch(err => alert('Errore durante la copia: ' + (err.message || err)));
         renderTable();
         closeActivityActionsModal();
     });
@@ -356,11 +373,16 @@ if (btnEditActivity) {
 if (btnDeleteActivity) {
     btnDeleteActivity.addEventListener('click', async () => {
         if (!targetFolderId || !targetActivityId) return;
-        fileSystem[targetFolderId] = fileSystem[targetFolderId].filter(item => item.id !== targetActivityId);
-        await Promise.all([
-            saveState(),
-            deleteDoc(doc(db, 'activities', targetActivityId)).catch(() => {})
-        ]);
+        const actId = targetActivityId;
+        try {
+            await mutateFolders([targetFolderId, AGENTE_FOLDER_ID], data => {
+                data[targetFolderId]   = data[targetFolderId].filter(item => item.id !== actId);
+                data[AGENTE_FOLDER_ID] = data[AGENTE_FOLDER_ID].filter(item => item.id !== actId);
+            });
+            await deleteDoc(doc(db, 'activities', actId)).catch(() => {});
+        } catch (err) {
+            alert("Errore durante l'eliminazione: " + (err.message || err));
+        }
         renderTable();
         closeActivityActionsModal();
     });

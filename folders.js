@@ -1,6 +1,6 @@
 import { db } from './firebase-init.js';
 import {
-    collection, doc, getDocs, setDoc, deleteDoc, writeBatch
+    collection, doc, getDocs, deleteDoc, runTransaction
 } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
 
 // --- STATO ---
@@ -32,12 +32,27 @@ async function loadFileSystem() {
     return fs;
 }
 
-async function saveState() {
-    const batch = writeBatch(db);
-    for (const fid in fileSystem) {
-        batch.set(doc(db, 'filesystem', fid), { items: fileSystem[fid] || [] });
+// Apply a change to some folder docs atomically, starting from their current server
+// state, so concurrent saves from the editor (or other admins) are never overwritten.
+async function mutateFolders(fids, mutate) {
+    const ids = [...new Set(fids)];
+    try {
+        const result = await runTransaction(db, async (tx) => {
+            const data = {};
+            for (const fid of ids) {
+                const snap = await tx.get(doc(db, 'filesystem', fid));
+                data[fid] = snap.exists() ? (snap.data().items || []) : [];
+            }
+            mutate(data);
+            for (const fid of ids) tx.set(doc(db, 'filesystem', fid), { items: data[fid] });
+            return data;
+        });
+        Object.assign(fileSystem, result);
+    } catch (err) {
+        console.error(err);
+        alert('Errore durante il salvataggio: ' + (err.message || err));
     }
-    await batch.commit();
+    renderGrid();
 }
 
 // --- RENDER ---
@@ -182,14 +197,13 @@ function navigateToBreadcrumb(index) {
 
 function moveItem(draggedId, targetId) {
     const currentFolderId = currentPath[currentPath.length - 1].id;
-    const idx = fileSystem[currentFolderId].findIndex(f => f.id === draggedId);
-    if (idx > -1) {
-        const [item] = fileSystem[currentFolderId].splice(idx, 1);
-        if (!fileSystem[targetId]) fileSystem[targetId] = [];
-        fileSystem[targetId].push(item);
-        saveState();
-        renderGrid();
-    }
+    if (targetId === currentFolderId) return;
+    mutateFolders([currentFolderId, targetId], data => {
+        const idx = data[currentFolderId].findIndex(f => f.id === draggedId);
+        if (idx < 0) return;
+        const [item] = data[currentFolderId].splice(idx, 1);
+        data[targetId].push(item);
+    });
 }
 
 // --- CREA CARTELLA ---
@@ -214,12 +228,11 @@ if (btnConfirmNewFolder) {
         if (!name) return;
         const currentFolderId = currentPath[currentPath.length - 1].id;
         const newId = 'f_' + Date.now();
-        if (!fileSystem[currentFolderId]) fileSystem[currentFolderId] = [];
-        fileSystem[currentFolderId].push({ id: newId, type: 'folder', name, color: folderColorInput.value });
-        fileSystem[newId] = [];
-        saveState();
-        renderGrid();
+        const color = folderColorInput.value;
         newFolderModal.style.display = 'none';
+        mutateFolders([currentFolderId, newId], data => {
+            data[currentFolderId].push({ id: newId, type: 'folder', name, color });
+        });
     });
 }
 
@@ -252,9 +265,10 @@ function showActivityPopup(activity, anchorEl) {
         if (action === 'delete') {
             if (confirm(`Eliminare "${activity.name}"?`)) {
                 const cid = currentPath[currentPath.length - 1].id;
-                fileSystem[cid] = fileSystem[cid].filter(f => f.id !== activity.id);
-                saveState();
-                renderGrid();
+                mutateFolders([cid, AGENTE_FOLDER_ID], data => {
+                    data[cid] = data[cid].filter(f => f.id !== activity.id);
+                    data[AGENTE_FOLDER_ID] = data[AGENTE_FOLDER_ID].filter(f => f.id !== activity.id);
+                });
             }
         }
     });
@@ -301,25 +315,32 @@ function apriModaleModifica(item) {
 if (btnCancelEdit)  btnCancelEdit.addEventListener('click',  () => editModal.style.display = 'none');
 if (btnConfirmEdit) btnConfirmEdit.addEventListener('click', () => {
     if (itemToEdit && editNameInput.value.trim()) {
-        itemToEdit.name = editNameInput.value.trim();
-        if (itemToEdit.type === 'folder') itemToEdit.color = editColorInput.value;
-        saveState();
-        renderGrid();
+        const cid     = currentPath[currentPath.length - 1].id;
+        const target  = itemToEdit;
+        const newName = editNameInput.value.trim();
+        const color   = editColorInput.value;
         editModal.style.display = 'none';
+        mutateFolders([cid], data => {
+            const item = data[cid].find(f => f.id === target.id);
+            if (!item) return;
+            item.name = newName;
+            if (item.type === 'folder') item.color = color;
+        });
     }
 });
-if (btnDeleteFolder) btnDeleteFolder.addEventListener('click', () => {
+if (btnDeleteFolder) btnDeleteFolder.addEventListener('click', async () => {
     const typeName  = itemToEdit.type === 'activity' ? "l'attività" : "la cartella";
     if (!confirm(`Eliminare ${typeName} "${itemToEdit.name}"?`)) return;
-    const cid = currentPath[currentPath.length - 1].id;
-    fileSystem[cid] = fileSystem[cid].filter(f => f.id !== itemToEdit.id);
-    if (itemToEdit.type === 'folder') {
-        delete fileSystem[itemToEdit.id];
-        deleteDoc(doc(db, 'filesystem', itemToEdit.id)).catch(console.error);
-    }
-    saveState();
-    renderGrid();
+    const cid    = currentPath[currentPath.length - 1].id;
+    const target = itemToEdit;
     editModal.style.display = 'none';
+    await mutateFolders([cid], data => {
+        data[cid] = data[cid].filter(f => f.id !== target.id);
+    });
+    if (target.type === 'folder') {
+        delete fileSystem[target.id];
+        deleteDoc(doc(db, 'filesystem', target.id)).catch(console.error);
+    }
 });
 
 // --- RESTRIZIONI RUOLO AGENTE ---
