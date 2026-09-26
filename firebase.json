@@ -6,6 +6,7 @@
       "**/.*",
       "**/node_modules/**",
       "**/*.py",
+      "test-iframe.html",
       "img/immagini_recuperate/**",
       "img/nuove_immagini_recuperate/**",
       "img/screen-sito/**",

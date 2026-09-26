@@ -75,3 +75,6 @@ node_modules/
 # non vanno versionate sulla repo pubblica
 img/immagini_recuperate/
 img/nuove_immagini_recuperate/
+
+# Pagina di prova locale per play.html (non va su GitHub né online)
+test-iframe.html
