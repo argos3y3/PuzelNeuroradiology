@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anatomiadi — Esercizio</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+               font-family: 'Poppins', sans-serif; background: #f9f9f9; color: #374151; }
+        .msg { max-width: 480px; padding: 24px; text-align: center; font-size: 15px; line-height: 1.6; }
+        .msg.error { color: #b91c1c; }
+    </style>
+</head>
+<body>
+    <div class="msg" id="msg">Caricamento esercizio…</div>
+
+    <script type="module">
+        import { db } from './firebase-init.js';
+        import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+        // Entry point for external sites: play.html?zona=TC&difficolta=2[&tipo=crossword]
+        // picks one random matching activity and opens it in embed mode.
+        const ZONES = ['CTV', 'SN', 'AP', 'MS', 'TC'];
+        const TYPES = ['crossword', 'hangman', 'trova-intruso', 'radiazione-a-catena',
+                       'se-conosci-riconosci', 'guess-what', 'passa-e-spassa'];
+        const AGENTE_FOLDER_ID = 'agente_selezione';
+
+        const msgEl = document.getElementById('msg');
+
+        function fail(reason, text, detail = {}) {
+            msgEl.textContent = text;
+            msgEl.classList.add('error');
+            if (window.parent !== window) {
+                window.parent.postMessage({ source: 'anatomiadi', type: 'error', reason, ...detail }, '*');
+            }
+        }
+
+        const params     = new URLSearchParams(location.search);
+        const zona       = (params.get('zona') || '').trim().toUpperCase();
+        const difficolta = parseInt(params.get('difficolta'), 10);
+        const tipo       = (params.get('tipo') || '').trim() || null;
+
+        if (!ZONES.includes(zona)) {
+            fail('invalid-params', `Zona del corpo non valida: "${zona}". Valori ammessi: ${ZONES.join(', ')}.`, { zona });
+        } else if (![1, 2, 3].includes(difficolta)) {
+            fail('invalid-params', `Difficoltà non valida: "${params.get('difficolta') ?? ''}". Valori ammessi: 1, 2, 3.`, { difficolta: params.get('difficolta') });
+        } else if (tipo && !TYPES.includes(tipo)) {
+            fail('invalid-params', `Tipo di gioco non valido: "${tipo}". Valori ammessi: ${TYPES.join(', ')}.`, { tipo });
+        } else {
+            try {
+                await pickAndOpen();
+            } catch (err) {
+                console.error(err);
+                fail('load-error', 'Errore nel caricamento degli esercizi. Riprova tra poco.');
+            }
+        }
+
+        async function pickAndOpen() {
+            const snap = await getDocs(collection(db, 'filesystem'));
+            const seen = new Set();
+            const candidates = [];
+            snap.forEach(d => {
+                if (d.id === AGENTE_FOLDER_ID) return; // copies of activities that live elsewhere
+                (d.data().items || []).forEach(it => {
+                    if (it.type !== 'activity' || seen.has(it.id)) return;
+                    seen.add(it.id);
+                    if (Array.isArray(it.zones) && it.zones.includes(zona)
+                        && it.difficulty === difficolta
+                        && (!tipo || it.templateKey === tipo)) {
+                        candidates.push(it.id);
+                    }
+                });
+            });
+
+            if (candidates.length === 0) {
+                fail('no-match', `Nessun esercizio disponibile per zona ${zona}, difficoltà ${difficolta}${tipo ? `, tipo ${tipo}` : ''}.`,
+                     { zona, difficolta, tipo });
+                return;
+            }
+
+            // Avoid repeats within this browser session: cycle through all candidates
+            // before any of them is served again.
+            const bagKey = `anatomiadi:served:${zona}:${difficolta}:${tipo || ''}`;
+            let served = [];
+            try { served = JSON.parse(sessionStorage.getItem(bagKey) || '[]'); } catch (_) {}
+            let pool = candidates.filter(id => !served.includes(id));
+            if (pool.length === 0) { served = []; pool = candidates; }
+
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+            try { sessionStorage.setItem(bagKey, JSON.stringify([...served, chosen])); } catch (_) {}
+
+            location.replace(`game.html?id=${encodeURIComponent(chosen)}&embed=1`);
+        }
+    </script>
+</body>
+</html>

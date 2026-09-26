@@ -260,8 +260,13 @@ import { collection, doc, getDocs, getDoc, setDoc } from 'https://www.gstatic.co
 // ── Carica filesystem da Firestore (sincronizzato prima dell'init) ─────────
 const fsSnap = await getDocs(collection(db, 'filesystem'));
 const allActivities = [];
+const _seenActivityIds = new Set();
 fsSnap.forEach(d => {
-    (d.data().items || []).forEach(item => { if (item.type === 'activity') allActivities.push(item); });
+    (d.data().items || []).forEach(item => {
+        if (item.type !== 'activity' || _seenActivityIds.has(item.id)) return;
+        _seenActivityIds.add(item.id);
+        allActivities.push(item);
+    });
 });
 allActivities.sort((a, b) => a.name.localeCompare(b.name));
 

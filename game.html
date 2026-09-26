@@ -275,6 +275,15 @@
         // --- INIZIALIZZAZIONE DATI da Firestore ---
         const activityId = new URLSearchParams(location.search).get('id');
         const _solutionOnly = new URLSearchParams(location.search).get('solution') === '1';
+        // embed=1: shown inside another site's iframe (via play.html), so hide links to our own pages
+        const _embed = new URLSearchParams(location.search).get('embed') === '1';
+        if (_embed) {
+            document.querySelector('.btn-exit').style.display = 'none';
+            document.getElementById('btnExitGame').style.display = 'none';
+        }
+        function notifyParent(payload) {
+            if (window.parent !== window) window.parent.postMessage({ source: 'anatomiadi', ...payload }, '*');
+        }
         let activityData = null;
         // Cerca prima nella collection activities (nuova struttura), poi fallback su filesystem
         const _actSnap = await getDoc(doc(db, 'activities', activityId));
@@ -289,9 +298,25 @@
                 if (found) { activityData = found; break; }
             }
         }
-        if (!activityData) { alert("Attività non trovata!"); window.location.href = "index.html"; }
+        if (!activityData) {
+            if (_embed) {
+                document.getElementById('gameContainer').innerHTML =
+                    '<p style="padding:40px;text-align:center;color:#888;">Esercizio non trovato.</p>';
+                notifyParent({ type: 'error', reason: 'not-found', activityId });
+                throw new Error('Attività non trovata: ' + activityId);
+            }
+            alert("Attività non trovata!"); window.location.href = "index.html";
+        }
 
         document.getElementById('gameTitle').innerText = activityData.name;
+        notifyParent({
+            type: 'start',
+            activityId: activityData.id,
+            name: activityData.name,
+            templateKey: activityData.templateKey,
+            zones: activityData.zones || [],
+            difficulty: activityData.difficulty ?? null
+        });
 
         // --- REGISTRAZIONE STATISTICHE DI GIOCO in Firestore ---
         // Aprire la sola soluzione non conta come partita giocata
@@ -341,6 +366,7 @@
             solutionShown = true;
             document.getElementById('resultOverlay').style.display = 'none';
             if (solutionFn) solutionFn();
+            if (_embed) return;
             // Barra fissa con tasto Esci
             const bar = document.createElement('div');
             bar.id = 'solutionExitBar';
@@ -358,6 +384,7 @@
         function endGame(isWin, message = "") {
             if (solutionShown) return;
             clearInterval(timerInterval);
+            notifyParent({ type: 'end', activityId: activityData.id, result: isWin ? 'win' : 'lose', message });
             resultOverlay.style.display = 'flex';
 
             if (isWin) {

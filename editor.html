@@ -18,7 +18,11 @@
         .btn-save { background: #ec4899; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-back { background: #ccc; color: black; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-decoration: none; }
         
-        .settings-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 20px; }
+        .settings-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 20px; }
+        .zone-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 0; }
+        .zone-checks label { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .zone-checks input[type="checkbox"] { padding: 0; width: 16px; height: 16px; accent-color: #ec4899; cursor: pointer; }
+        .input-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; background: white; }
         .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
         .input-group input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: 'Poppins'; }
         
@@ -116,6 +120,26 @@
             <label>Timer (Secondi)</label>
             <input type="number" id="activityTimerSeconds" value="0" min="0" max="59">
         </div>
+        <div style="flex-basis: 100%; height: 0;"></div>
+        <div class="input-group" style="flex: 3 1 420px;">
+            <label>Zona del corpo (una o più)</label>
+            <div class="zone-checks" id="zoneChecks">
+                <label><input type="checkbox" value="CTV"> CTV – cardio toracovascolare</label>
+                <label><input type="checkbox" value="SN"> SN – sistema nervoso</label>
+                <label><input type="checkbox" value="AP"> AP – addome pelvi</label>
+                <label><input type="checkbox" value="MS"> MS – muscolo scheletrico</label>
+                <label><input type="checkbox" value="TC"> TC – testa collo</label>
+            </div>
+        </div>
+        <div class="input-group" style="flex: 0.5 1 140px;">
+            <label>Difficoltà</label>
+            <select id="activityDifficulty">
+                <option value="">— scegli —</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
     </div>
 
     <div class="items-panel">
@@ -126,7 +150,11 @@
 
     <script type="module">
         import { db } from './firebase-init.js';
-        import { collection, doc, getDoc, getDocs, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+        import { collection, doc, getDoc, getDocs, setDoc, runTransaction } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+        // Copy of selected activities for the 'agente' role: never an activity's home folder
+        const AGENTE_FOLDER_ID = 'agente_selezione';
+        const ZONES = ['CTV', 'SN', 'AP', 'MS', 'TC'];
 
         const urlParams = new URLSearchParams(window.location.search);
         const editId    = urlParams.get('id'); // present when editing an existing activity
@@ -149,6 +177,7 @@
 
         function _findFolderForActivity(actId) {
             for (const fid in _fs) {
+                if (fid === AGENTE_FOLDER_ID) continue;
                 if ((_fs[fid] || []).some(item => item.id === actId)) return fid;
             }
             return 'root';
@@ -811,6 +840,9 @@
             document.getElementById('activityName').value  = editData.name || '';
             document.getElementById('activityTimer').value        = editData.timerMinutes ?? 5;
             document.getElementById('activityTimerSeconds').value = editData.timerSeconds ?? 0;
+            const savedZones = editData.zones || [];
+            document.querySelectorAll('#zoneChecks input').forEach(cb => { cb.checked = savedZones.includes(cb.value); });
+            document.getElementById('activityDifficulty').value = editData.difficulty ? String(editData.difficulty) : '';
 
             if (isGuessWhat) {
                 // Pre-create label rows then load image
@@ -920,17 +952,41 @@
                 btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
                 return;
             }
+            const zones = [...document.querySelectorAll('#zoneChecks input:checked')].map(cb => cb.value);
+            const difficulty = parseInt(document.getElementById('activityDifficulty').value) || null;
+            if (zones.length === 0 || !difficulty) {
+                alert("Seleziona almeno una zona del corpo e la difficoltà dell'attività.");
+                btnSave.disabled = false;
+                btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
+                return;
+            }
             const rows = document.querySelectorAll('.item-row');
 
             const fileSystem = _fs;
 
+            // Firestore rejects undefined values, so only copy fields that are set
+            const META_KEYS = ['id', 'type', 'name', 'activityType', 'templateKey', 'date',
+                               'timerMinutes', 'timerSeconds', 'zones', 'difficulty'];
             function toMeta(item) {
                 if (!item || item.type !== 'activity') return item;
-                const { id, type, name: n, activityType, templateKey, date, timerMinutes, timerSeconds } = item;
-                return {
-                    id, type: type || 'activity', name: n, activityType, templateKey, date, timerMinutes,
-                    ...(timerSeconds !== undefined && { timerSeconds })
-                };
+                const meta = {};
+                META_KEYS.forEach(k => { if (item[k] !== undefined) meta[k] = item[k]; });
+                return meta;
+            }
+
+            // Upsert this activity's metadata inside a folder doc, re-reading the folder
+            // server-side so concurrent saves by other editors aren't overwritten.
+            function upsertInFolder(fid, meta, { appendIfMissing }) {
+                return runTransaction(db, async (tx) => {
+                    const ref   = doc(db, 'filesystem', fid);
+                    const snap  = await tx.get(ref);
+                    const items = snap.exists() ? (snap.data().items || []) : [];
+                    const idx   = items.findIndex(it => it.id === meta.id);
+                    if (idx >= 0) items[idx] = meta;
+                    else if (appendIfMissing) items.push(meta);
+                    else return;
+                    tx.set(ref, { items });
+                });
             }
 
             const newActivity = {
@@ -941,7 +997,9 @@
                 templateKey: activityTypeKey,
                 date: new Date().toLocaleString('it-IT').slice(0, 16).replace(',', ''),
                 timerMinutes: timer,
-                timerSeconds: timerSeconds
+                timerSeconds: timerSeconds,
+                zones,
+                difficulty
             };
 
             try {
@@ -1064,10 +1122,16 @@
                     const targetFolder = fileSystem[folderId] || [];
                     const actIdx = targetFolder.findIndex(a => a.id === editId);
                     const fullActivity = {
-                        ...(actIdx >= 0 ? fileSystem[folderId][actIdx] : {}),
+                        ...(actIdx >= 0 ? fileSystem[folderId][actIdx] : (editData || {})),
+                        id: editId,
+                        type: 'activity',
+                        templateKey: activityTypeKey,
+                        activityType: newActivity.activityType,
                         name: newActivity.name,
                         timerMinutes: newActivity.timerMinutes,
                         timerSeconds: newActivity.timerSeconds,
+                        zones: newActivity.zones,
+                        difficulty: newActivity.difficulty,
                         ...(newActivity.questions  !== undefined && { questions:  newActivity.questions }),
                         ...(newActivity.image      !== undefined && { image:      newActivity.image }),
                         ...(newActivity.labels     !== undefined && { labels:     newActivity.labels }),
@@ -1076,21 +1140,19 @@
                         ...(newActivity.words      !== undefined && { words:      newActivity.words }),
                         ...(newActivity.hiddenSolution !== undefined && { hiddenSolution: newActivity.hiddenSolution })
                     };
-                    if (actIdx >= 0) fileSystem[folderId][actIdx] = fullActivity;
+                    const meta = toMeta(fullActivity);
+                    const otherFolders = Object.keys(fileSystem).filter(fid =>
+                        fid !== folderId && (fileSystem[fid] || []).some(a => a.id === editId));
 
+                    await setDoc(doc(db, 'activities', editId), { ...fullActivity, folderId });
                     await Promise.all([
-                        setDoc(doc(db, 'activities', editId), { ...fullActivity, folderId }),
-                        setDoc(doc(db, 'filesystem', folderId), { items: (fileSystem[folderId] || []).map(toMeta) })
+                        upsertInFolder(folderId, meta, { appendIfMissing: true }),
+                        ...otherFolders.map(fid => upsertInFolder(fid, meta, { appendIfMissing: false }))
                     ]);
                     alert("Attività aggiornata con successo!");
                 } else {
-                    if (!fileSystem[folderId]) fileSystem[folderId] = [];
-                    fileSystem[folderId].push({ ...newActivity, folderId });
-
-                    await Promise.all([
-                        setDoc(doc(db, 'activities', newActivity.id), { ...newActivity, folderId }),
-                        setDoc(doc(db, 'filesystem', folderId), { items: (fileSystem[folderId] || []).map(toMeta) })
-                    ]);
+                    await setDoc(doc(db, 'activities', newActivity.id), { ...newActivity, folderId });
+                    await upsertInFolder(folderId, toMeta(newActivity), { appendIfMissing: true });
                     alert("Attività salvata con successo!");
                 }
                 window.location.href = 'index.html';
