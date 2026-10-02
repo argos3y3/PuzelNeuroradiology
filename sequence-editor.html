@@ -256,6 +256,8 @@
 <script type="module">
 import { db } from './firebase-init.js';
 import { collection, doc, getDocs, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+// No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+(async () => {
 
 // ── Carica filesystem da Firestore (sincronizzato prima dell'init) ─────────
 const fsSnap = await getDocs(collection(db, 'filesystem'));
@@ -585,6 +587,7 @@ document.getElementById('btnSave').addEventListener('click', async () => {
 });
 
 init();
+})().catch(err => console.error(err));
 </script>
 </body>
 </html>

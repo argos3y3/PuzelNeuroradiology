@@ -18,6 +18,8 @@
     <script type="module">
         import { db } from './firebase-init.js';
         import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+        // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+        (async () => {
 
         // Entry point for external sites: play.html?zona=TC&difficolta=2[&tipo=crossword]
         // picks one random matching activity and opens it in embed mode.
@@ -92,6 +94,7 @@
 
             location.replace(`game.html?id=${encodeURIComponent(chosen)}&embed=1`);
         }
+        })().catch(err => console.error(err));
     </script>
 </body>
 </html>

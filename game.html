@@ -271,6 +271,8 @@
     <script type="module">
         import { db } from './firebase-init.js';
         import { collection, doc, getDocs, getDoc, setDoc, addDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+        // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+        (async () => {
 
         // --- INIZIALIZZAZIONE DATI da Firestore ---
         const activityId = new URLSearchParams(location.search).get('id');
@@ -776,6 +778,7 @@
                 el.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
+        })().catch(err => console.error(err));
     </script>
 </body>
 </html>

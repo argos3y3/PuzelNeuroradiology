@@ -151,6 +151,8 @@
     <script type="module">
         import { db } from './firebase-init.js';
         import { collection, doc, getDoc, getDocs, setDoc, runTransaction } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+        // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+        (async () => {
 
         // Copy of selected activities for the 'agente' role: never an activity's home folder
         const AGENTE_FOLDER_ID = 'agente_selezione';
@@ -1164,6 +1166,7 @@
                 btnSave.textContent = editId ? 'Aggiorna Attività' : 'Salva Attività';
             }
         });
+        })().catch(err => console.error(err));
     </script>
 </body>
 </html>

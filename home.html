@@ -97,6 +97,8 @@
 <script type="module">
 import { db } from './firebase-init.js';
 import { collection, doc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+// No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+(async () => {
 
 let sequences    = [];
 let deleteTarget = null;
@@ -185,6 +187,7 @@ document.getElementById('deleteConfirmModal').addEventListener('click', e => {
 // ── Init ─────────────────────────────────────────────────────────────────
 await loadSequences();
 renderTable();
+})().catch(err => console.error(err));
 </script>
 </body>
 </html>

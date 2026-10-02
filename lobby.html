@@ -300,6 +300,8 @@
 <script type="module">
 import { db } from './firebase-init.js';
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+// No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
+(async () => {
 
 const PRESENCE_TTL = 12000;
 const DUMMY_USER   = 'utente dummy';
@@ -509,6 +511,7 @@ window.addEventListener('beforeunload', () => {
     clearInterval(presenceInterval);
     if (!sessionStarted) deleteDoc(doc(db, 'lobby', 'current')).catch(() => {});
 });
+})().catch(err => console.error(err));
 </script>
 </body>
 </html>

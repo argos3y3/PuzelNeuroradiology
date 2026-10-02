@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostica browser — Anatomiadi</title>
+    <style>
+        body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; font-size: 20px; }
+        h1 { font-size: 28px; margin: 0 0 12px; }
+        .ua { font-family: monospace; font-size: 15px; background: white; padding: 10px; border-radius: 6px; word-break: break-all; }
+        table { border-collapse: collapse; margin-top: 16px; background: white; }
+        td { padding: 8px 14px; border-bottom: 1px solid #e5e7eb; }
+        .ok { color: #15803d; font-weight: bold; }
+        .ko { color: #b91c1c; font-weight: bold; }
+        .wait { color: #6b7280; }
+        a { color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <h1>Diagnostica browser</h1>
+    <div class="ua" id="ua"></div>
+    <table id="results"></table>
+    <p><a href="play.html?zona=TC&amp;difficolta=1">Apri un esercizio di prova</a></p>
+
+    <!-- Deliberately ES5 so it runs even on very old engines -->
+    <script>
+        var table = document.getElementById('results');
+        var ua = navigator.userAgent;
+        var chrome = (ua.match(/Chrome\/(\d+)/) || [])[1];
+        document.getElementById('ua').textContent = ua + (chrome ? '  —  motore Chrome ' + chrome : '');
+
+        function row(label) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + label + '</td><td class="wait">…</td>';
+            table.appendChild(tr);
+            return function (ok, note) {
+                var cell = tr.lastChild;
+                cell.className = ok ? 'ok' : 'ko';
+                cell.textContent = (ok ? 'OK' : 'NO') + (note ? '  (' + note + ')' : '');
+            };
+        }
+        function syntax(label, code) {
+            var done = row(label);
+            try { new Function(code); done(true); } catch (e) { done(false); }
+        }
+
+        row('Script moduli (type="module")')('noModule' in document.createElement('script'));
+        syntax('Optional chaining ?.  (Chrome 80+)', 'var a; return a?.b;');
+        syntax('Nullish coalescing ??  (Chrome 80+)', 'var a; return a ?? 1;');
+        syntax('Assegnazione logica ||=  (Chrome 85+)', 'var a; a ||= 1;');
+
+        var tla = row('Await di primo livello  (Chrome 89+, non più necessario)');
+        var fsRow = row('Lettura database Firestore');
+        var loader;
+        try { loader = new Function('u', 'return import(u);'); } catch (e) { loader = null; }
+        if (!loader) {
+            tla(false, 'import dinamico non supportato');
+            fsRow(false, 'import dinamico non supportato');
+        } else {
+            loader('data:text/javascript,await 0;export default 1').then(function () { tla(true); }, function () { tla(false); });
+
+            var timer = setTimeout(function () { fsRow(false, 'nessuna risposta in 15 s'); }, 15000);
+            Promise.all([loader(location.origin + '/firebase-init.js'),
+                         loader('https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js')])
+                .then(function (m) { return m[1].getDoc(m[1].doc(m[0].db, 'filesystem', 'root')); })
+                .then(function (snap) {
+                    clearTimeout(timer);
+                    fsRow(true, (snap.data().items || []).length + ' elementi nella cartella principale');
+                }, function (err) { clearTimeout(timer); fsRow(false, String(err && err.message || err)); });
+        }
+
+        window.addEventListener('error', function (e) { row('Errore JavaScript')(false, e.message); });
+    </script>
+</body>
+</html>
