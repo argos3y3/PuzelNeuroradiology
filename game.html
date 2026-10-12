@@ -689,6 +689,7 @@
                 activityData.words || [],
                 {
                     hiddenSolution:     activityData.hiddenSolution || '',
+                    hiddenIsWord:       activityData.hiddenSolutionIsWord === true,
                     onWin:              (msg) => endGame(true, msg),
                     onLose:             (msg) => endGame(false, msg),
                     onStartTimer:       () => startTimer(),

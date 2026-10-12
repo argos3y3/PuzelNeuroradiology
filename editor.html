@@ -491,7 +491,8 @@
             hiddenSolGroup.className = 'input-group';
             hiddenSolGroup.innerHTML = `
                 <label>Parola Nascosta (Filippini)</label>
-                <input type="text" id="hiddenSolutionInput" placeholder="Es. ANATOMIA" style="text-transform:uppercase;">
+                <input type="text" id="hiddenSolutionInput" placeholder="Es. OLECRANO" style="text-transform:uppercase;">
+                <small style="color:#6b7280;font-size:11px;">Scrivi la parola vera: le righe vengono ordinate da sole per comporla. In gioco l'ordine è casuale.</small>
             `;
             settingsPanel.appendChild(hiddenSolGroup);
 
@@ -748,6 +749,31 @@
         }
         // ─────────────────────────────────────────────────────────────────────
 
+        // The teacher types the real hidden word; rows are then put in the order that
+        // spells it (in-game the row order is shuffled anyway). Each letter must be
+        // paired with a different row that contains it: a bipartite matching, which
+        // prefers the row already in that position so a valid order is left untouched.
+        // Returns { order, unplaced }: order[j] = index of the row for letter j.
+        function assignRowsToHiddenWord(hidden, words) {
+            const rowLetter = new Array(words.length).fill(-1);
+            const place = (j, seen) => {
+                const candidates = [j, ...words.keys()];
+                for (const i of candidates) {
+                    if (i >= words.length || seen[i] || !words[i].includes(hidden[j])) continue;
+                    seen[i] = true;
+                    if (rowLetter[i] === -1 || place(rowLetter[i], seen)) { rowLetter[i] = j; return true; }
+                }
+                return false;
+            };
+            const unplaced = [];
+            for (let j = 0; j < hidden.length; j++) {
+                if (!place(j, new Array(words.length).fill(false))) unplaced.push(j);
+            }
+            const order = new Array(hidden.length).fill(null);
+            rowLetter.forEach((j, i) => { if (j !== -1) order[j] = i; });
+            return { order, unplaced };
+        }
+
         function renderPreview() {
             const prvWrap    = document.getElementById('prvWrap');
             const prvWarning = document.getElementById('prvWarning');
@@ -769,25 +795,27 @@
             // hidden solution word typed by the teacher (same logic used in-game).
             const hiddenSol = (document.getElementById('hiddenSolutionInput')?.value || '')
                               .toUpperCase().replace(/\s/g, '');
+            const { order, unplaced } = assignRowsToHiddenWord(hiddenSol, words);
+            const complete = hiddenSol.length === words.length && unplaced.length === 0;
+            const typedWords = words.slice();
+            if (complete) words.splice(0, words.length, ...order.map(i => typedWords[i]));
+
             const notFoundRows = [];
             const hiddenPos = words.map((text, i) => {
                 const ch = hiddenSol[i] || '';
                 const f  = ch ? text.indexOf(ch) : -1;
-                if (f < 0) notFoundRows.push(i);
+                // while the word can't be composed yet, flag the rows no letter could use
+                if (!complete && !order.includes(i)) notFoundRows.push(i);
                 return f >= 0 ? f : 0;
             });
 
-            // Warn when the hidden solution doesn't line up 1:1 with the words
             if (prvWarning) {
                 const warnings = [];
                 if (hiddenSol.length !== words.length) {
-                    warnings.push(`La Parola Nascosta ha ${hiddenSol.length} lettere ma ci sono ${words.length} parole: devono corrispondere una a una.`);
+                    warnings.push(`La Parola Nascosta ha ${hiddenSol.length} lettere ma ci sono ${words.length} parole: devono essere una per riga.`);
                 }
-                notFoundRows.forEach(i => {
-                    const ch = hiddenSol[i];
-                    warnings.push(ch
-                        ? `Riga ${i + 1} ("${words[i]}") non contiene la lettera "${ch}".`
-                        : `Riga ${i + 1} ("${words[i]}") non ha una lettera corrispondente nella Parola Nascosta.`);
+                unplaced.forEach(j => {
+                    warnings.push(`Nessuna riga ancora libera contiene la lettera "${hiddenSol[j]}" (lettera n. ${j + 1} della Parola Nascosta).`);
                 });
                 prvWarning.hidden = warnings.length === 0;
                 if (warnings.length > 0) prvWarning.innerHTML = '⚠️ ' + warnings.join('<br>⚠️ ');
@@ -1102,20 +1130,21 @@
                             return;
                         }
 
-                        const lettereMancanti = [];
-                        wordsArray.forEach((w, i) => {
-                            const ch = hiddenSolution[i];
-                            if (!w.word.includes(ch)) {
-                                lettereMancanti.push(`riga ${i + 1} ("${w.word}") non contiene la lettera "${ch}"`);
-                            }
-                        });
-                        if (lettereMancanti.length > 0) {
-                            alert(`Alcune lettere della Parola Nascosta non compaiono nella parola corrispondente:\n- ${lettereMancanti.join('\n- ')}`);
+                        const { order, unplaced } = assignRowsToHiddenWord(
+                            hiddenSolution, wordsArray.map(w => w.word.replace(/\s/g, '')));
+                        if (unplaced.length > 0) {
+                            const lettere = unplaced.map(j => `"${hiddenSolution[j]}" (lettera n. ${j + 1})`).join(', ');
+                            alert(`Non è possibile comporre la Parola Nascosta "${hiddenSolution}" con queste parole: nessuna riga ancora libera contiene ${lettere}.`);
                             resetSaveBtn();
                             return;
                         }
 
+                        // Rows are saved in the order that spells the hidden word
+                        newActivity.words = order.map(i => wordsArray[i]);
                         newActivity.hiddenSolution = hiddenSolution;
+                        // Saved from this editor the field holds the real word, so the game
+                        // can require it exactly (older activities stored scrambled letters)
+                        newActivity.hiddenSolutionIsWord = true;
                     }
                 }
 
@@ -1140,7 +1169,8 @@
                         ...(newActivity.phrases    !== undefined && { phrases:    newActivity.phrases }),
                         ...(newActivity.images     !== undefined && { images:     newActivity.images }),
                         ...(newActivity.words      !== undefined && { words:      newActivity.words }),
-                        ...(newActivity.hiddenSolution !== undefined && { hiddenSolution: newActivity.hiddenSolution })
+                        ...(newActivity.hiddenSolution !== undefined && { hiddenSolution: newActivity.hiddenSolution }),
+                        ...(newActivity.hiddenSolutionIsWord !== undefined && { hiddenSolutionIsWord: newActivity.hiddenSolutionIsWord })
                     };
                     const meta = toMeta(fullActivity);
                     const otherFolders = Object.keys(fileSystem).filter(fid =>

@@ -78,3 +78,7 @@ img/nuove_immagini_recuperate/
 
 # Pagina di prova locale per play.html (non va su GitHub né online)
 test-iframe.html
+
+# Copie di sicurezza dei dati (contengono le soluzioni dei giochi) e file generati
+backup_*.json
+__pycache__/

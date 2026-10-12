@@ -3,6 +3,7 @@ class SeConosci {
         this.container    = container;
         this.words        = words;
         this.hiddenSolution = (callbacks.hiddenSolution || '').toUpperCase().replace(/\s/g, '');
+        this.hiddenIsWord   = !!callbacks.hiddenIsWord;
         this.onWin              = callbacks.onWin              || (() => {});
         this.onLose             = callbacks.onLose             || (() => {});
         this.onStartTimer       = callbacks.onStartTimer       || (() => {});
@@ -34,13 +35,16 @@ class SeConosci {
         // Randomize the on-screen row order of the horizontal words each time the
         // game is presented, so the vertical intersection letters no longer read
         // top-to-bottom in solution order (as in a real "filippino" schema).
-        // wordNum stays tied to each word's position in the hidden solution.
+        // Rows are saved in the order that spells the hidden word, so the numbers
+        // shown on rows and images follow the shuffled order too: numbering them
+        // by saved position would give the word away.
         const rowOrder = placements.map((_, i) => i);
         for (let i = rowOrder.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [rowOrder[i], rowOrder[j]] = [rowOrder[j], rowOrder[i]];
         }
-        placements.forEach((p, i) => { p.row = rowOrder[i]; });
+        placements.forEach((p, i) => { p.row = rowOrder[i]; p.wordNum = rowOrder[i] + 1; });
+        placements.sort((a, b) => a.row - b.row);
 
         const hiddenCol = Math.max(...placements.map(p => p.hiddenPos), 0);
         placements.forEach(p => { p.startX = hiddenCol - p.hiddenPos; });
@@ -330,10 +334,11 @@ class SeConosci {
         this.onStartTimer();
     }
 
-    // The stored solution holds one letter per row, in the order the rows were entered
-    // in the editor, which is usually not the order that spells the word: accept any
-    // word made of exactly those letters.
+    // Activities saved with the real hidden word require it exactly. Older ones stored
+    // one letter per row in whatever order the rows had, usually not spelling the word:
+    // for those accept any word made of exactly those letters.
     isHiddenWord(typed) {
+        if (this.hiddenIsWord) return typed === this.hiddenSolution;
         const letters = (w) => [...w].sort().join('');
         return letters(typed) === letters(this.hiddenSolution);
     }

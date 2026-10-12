@@ -12,6 +12,8 @@
       "**/*.md",
       "**/*.pdf",
       "stato.json",
+      "backup_*.json",
+      "**/__pycache__/**",
       "img/immagini_recuperate/**",
       "img/nuove_immagini_recuperate/**",
       "img/screen-sito/**",
