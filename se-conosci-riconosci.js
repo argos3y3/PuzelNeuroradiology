@@ -53,7 +53,7 @@ class SeConosci {
             const pW    = this.container.clientWidth;
             const pH    = this.container.clientHeight;
             const gridW = Math.floor(pW * 0.62) - 40;
-            const gridH = pH - 40;
+            const gridH = pH - 40 - (hiddenSol ? 120 : 0);
             const byW   = Math.floor((gridW - (totalCols - 1) * 2) / totalCols);
             const byH   = Math.floor((gridH - (totalRows - 1) * 2) / totalRows);
             return Math.max(14, Math.min(38, byW, byH));
@@ -64,6 +64,16 @@ class SeConosci {
             <div class="scr-layout">
                 <div class="scr-grid-area">
                     <div class="crossword-grid" id="cwGrid"></div>
+                    ${hiddenSol ? `
+                    <div class="scr-hidden-bar" id="scrHiddenBar">
+                        <div class="scr-hidden-prompt" id="scrHiddenPrompt">Dunque la parola nascosta è..?</div>
+                        <div class="scr-hidden-row">
+                            <label for="scrHiddenInput">Parola nascosta</label>
+                            <input type="text" id="scrHiddenInput" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                            <button type="button" id="scrHiddenCheck">Verifica</button>
+                        </div>
+                        <div class="scr-hidden-error" id="scrHiddenError"></div>
+                    </div>` : ''}
                 </div>
                 <div class="scr-panel">
                     <div class="scr-images" id="scrImages"></div>
@@ -129,8 +139,10 @@ class SeConosci {
         // ── Input event handling ──────────────────────────────────────────
         rowInputs.forEach((rowArr, rowIdx) => {
             rowArr.forEach((input, colIdx) => {
+                input.addEventListener('focus', () => selectRow(placements.find(pl => pl.row === rowIdx)));
+
                 input.addEventListener('input', () => {
-                    input.value = input.value.toUpperCase();
+                    input.value = input.value.replace(/\s/g, '').toUpperCase();
                     if (input.value !== '') {
                         if (colIdx < rowArr.length - 1) {
                             rowArr[colIdx + 1].focus();
@@ -214,19 +226,26 @@ class SeConosci {
             scrImages.querySelectorAll('.scr-image-card.active').forEach(c => c.classList.remove('active'));
         });
 
-        cwGrid.addEventListener('click', (e) => {
-            const cell = e.target.closest('.cw-cell');
-            if (!cell) return;
-            const input = cell.querySelector('input');
-            if (!input) return;
-            const clickedRow = parseInt(input.dataset.row);
-            const p = placements.find(pl => pl.row === clickedRow);
+        // Selecting a row enlarges its image, as the 🔍 button does; moving to another
+        // row swaps the image (or hides it if that row has none). Unless forced, the
+        // same row doesn't reopen a popup the player closed.
+        let zoomedWordNum = null;
+        const selectRow = (p, force) => {
             if (!p) return;
             scrImages.querySelectorAll('.scr-image-card.active').forEach(c => c.classList.remove('active'));
-            const card = scrImages.querySelector(`.scr-image-card[data-word-num="${p.wordNum}"]`);
-            if (card) card.classList.add('active');
+            scrImages.querySelector(`.scr-image-card[data-word-num="${p.wordNum}"]`)?.classList.add('active');
             activeWordNum = p.wordNum;
             highlightRow(p.wordNum);
+            if (!force && zoomedWordNum === p.wordNum) return;
+            zoomedWordNum = p.wordNum;
+            if (p.image && p.image !== 'null') showZoom(p.image);
+            else hideZoom();
+        };
+
+        cwGrid.addEventListener('click', (e) => {
+            const input = e.target.closest('.cw-cell')?.querySelector('input');
+            if (!input) return;
+            selectRow(placements.find(pl => pl.row === parseInt(input.dataset.row)), true);
         });
 
         // ── Image clue panel ──────────────────────────────────────────────
@@ -261,6 +280,7 @@ class SeConosci {
                     activeWordNum = null; highlightRow(null); hideZoom();
                 } else {
                     activeWordNum = p.wordNum;
+                    zoomedWordNum = p.wordNum;
                     card.classList.add('active');
                     highlightRow(p.wordNum);
                     if (p.image && p.image !== 'null') showZoom(p.image);
@@ -271,22 +291,63 @@ class SeConosci {
             scrImages.appendChild(card);
         });
 
+        // ── Hidden word bar ───────────────────────────────────────────────
+        // Typing the hidden word wins at any time, even with rows still empty.
+        const hiddenInput = document.getElementById('scrHiddenInput');
+        if (hiddenInput) {
+            const hiddenError = document.getElementById('scrHiddenError');
+            const tryHiddenWord = () => {
+                const typed = hiddenInput.value.toUpperCase().replace(/\s/g, '');
+                if (!typed) return;
+                if (this.isHiddenWord(typed)) {
+                    hiddenInput.readOnly = true;
+                    hiddenError.textContent = '';
+                    this.onWin('Hai trovato la parola nascosta!');
+                } else {
+                    hiddenError.textContent = 'Non è la parola nascosta. Riprova!';
+                    hiddenInput.classList.add('scr-hidden-wrong');
+                    setTimeout(() => hiddenInput.classList.remove('scr-hidden-wrong'), 600);
+                }
+            };
+            hiddenInput.addEventListener('input', () => {
+                hiddenInput.value = hiddenInput.value.toUpperCase();
+                hiddenError.textContent = '';
+            });
+            hiddenInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); tryHiddenWord(); }
+            });
+            document.getElementById('scrHiddenCheck').addEventListener('click', tryHiddenWord);
+        }
+
         this.onRegisterSolution?.(() => {
             document.querySelectorAll('#cwGrid .cw-cell input').forEach(inp => {
                 inp.value    = inp.dataset.correct;
                 inp.readOnly = true;
             });
+            document.getElementById('scrHiddenBar')?.remove();
         });
 
         this.onStartTimer();
     }
 
+    // The stored solution holds one letter per row, in the order the rows were entered
+    // in the editor, which is usually not the order that spells the word: accept any
+    // word made of exactly those letters.
+    isHiddenWord(typed) {
+        const letters = (w) => [...w].sort().join('');
+        return letters(typed) === letters(this.hiddenSolution);
+    }
+
     checkCompletion() {
         const allInputs  = [...document.querySelectorAll('.cw-cell input')];
         const allFilled  = allInputs.every(inp => inp.value !== '');
-        if (!allFilled) return;
+        const prompt     = document.getElementById('scrHiddenPrompt');
+        if (!allFilled) { prompt?.classList.remove('visible'); return; }
         const allCorrect = allInputs.every(inp => inp.value === inp.dataset.correct);
-        if (allCorrect) this.onWin('Cruciverba completato perfettamente!');
-        else this.onLose('Attenzione: alcune lettere sono sbagliate!');
+        if (!allCorrect) { this.onLose('Attenzione: alcune lettere sono sbagliate!'); return; }
+        if (!this.hiddenSolution) { this.onWin('Cruciverba completato perfettamente!'); return; }
+        // All rows are right: the game is won only by typing the hidden word
+        prompt?.classList.add('visible');
+        document.getElementById('scrHiddenInput')?.focus();
     }
 }

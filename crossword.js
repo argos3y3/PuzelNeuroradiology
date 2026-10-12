@@ -213,6 +213,23 @@ class Crossword {
             updateIndicator(key);
             const entry = getEntry(key, activeDir);
             highlightWord(entry ? entry.wp.originalIndex : null);
+            syncZoom(entry ? entry.wp.originalIndex : null);
+        };
+
+        // ── Zoom follows the selected word ────────────────────────────────
+        // Selecting a word in the grid enlarges its image, as the 🔍 button does;
+        // moving to another word swaps the image (or hides it if that word has none).
+        // Unless forced, the same word doesn't reopen a popup the player closed.
+        let zoomedWordIdx = null;
+        const syncZoom = (idx, force) => {
+            if (idx == null || (!force && idx === zoomedWordIdx)) return;
+            zoomedWordIdx = idx;
+            activeWordIdx = idx;
+            cwClues.querySelectorAll('.clue-item.active').forEach(c => c.classList.remove('active'));
+            cwClues.querySelector(`.clue-item[data-word-index="${idx}"]`)?.classList.add('active');
+            const wp = wordPlacements.find(w => w.originalIndex === idx);
+            if (wp && wp.image && wp.image !== 'null') showZoom(wp.image);
+            else hideZoom();
         };
 
         // ── Temporary unlock helpers ──────────────────────────────────────
@@ -314,13 +331,15 @@ class Crossword {
                 wasActiveBeforeClick = activeKey === key && document.activeElement === input;
             });
             cell.addEventListener('click', () => {
-                if (!wasActiveBeforeClick) return; // focus handler will call setActive
-                if (isIntersection(key)) {
+                // When the cell wasn't active yet, the focus handler has already called setActive
+                if (wasActiveBeforeClick && isIntersection(key)) {
                     activeDir = activeDir === 'H' ? 'V' : 'H';
                     updateIndicator(key);
                     const entry = getEntry(key, activeDir);
                     highlightWord(entry ? entry.wp.originalIndex : null);
                 }
+                const entry = getEntry(key, activeDir);
+                syncZoom(entry ? entry.wp.originalIndex : null, true);
             });
 
             input.addEventListener('focus', () => {

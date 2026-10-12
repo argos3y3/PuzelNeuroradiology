@@ -149,7 +149,18 @@
 
         /* SE CONOSCI...RICONOSCI STYLES */
         .scr-layout { position: relative; display: flex; width: 100%; max-width: 1200px; gap: 20px; height: 100%; }
-        .scr-grid-area { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: hidden; display: flex; align-items: flex-start; }
+        .scr-grid-area { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+        .scr-hidden-bar { width: 100%; }
+        .scr-hidden-prompt { display: none; color: #f9a8d4; font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+        .scr-hidden-prompt.visible { display: block; }
+        .scr-hidden-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .scr-hidden-row label { color: white; font-size: 13px; font-weight: 600; }
+        .scr-hidden-row input { width: 240px; max-width: 100%; padding: 8px 12px; font-size: 16px; font-family: 'Poppins', sans-serif; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; border: 2px solid #f9a8d4; border-radius: 6px; outline: none; }
+        .scr-hidden-row input:focus { border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236,72,153,0.35); }
+        .scr-hidden-row input.scr-hidden-wrong { border-color: #dc2626; animation: scrShake 0.3s 2; }
+        .scr-hidden-row button { background: #ec4899; color: white; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; }
+        .scr-hidden-error { color: #fca5a5; font-size: 13px; min-height: 18px; margin-top: 6px; }
+        @keyframes scrShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         .scr-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
         .scr-images { display: flex; flex-direction: column; gap: 10px; }
         .scr-image-card { background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.15s; }
@@ -210,7 +221,7 @@
         @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
         /* ON-SCREEN KEYBOARD */
-        body.show-osk { padding-bottom: 165px; }
+        body.show-osk { padding-bottom: 213px; }
         #onScreenKeyboard { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #d1d5db; padding: 8px 6px 14px; box-shadow: 0 -2px 8px rgba(0,0,0,0.18); z-index: 900; user-select: none; touch-action: manipulation; }
         .osk-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 6px; max-width: 560px; margin-left: auto; margin-right: auto; }
         .osk-row:last-child { margin-bottom: 0; }
@@ -218,6 +229,7 @@
         .osk-key:active { background: #e5e7eb; transform: translateY(1px); box-shadow: 0 1px 0 #9ca3af; }
         .osk-action { background: #9ca3af; color: white; flex: 1.5; font-size: 13px; box-shadow: 0 2px 0 #6b7280; }
         .osk-action:active { background: #6b7280; box-shadow: 0 1px 0 #4b5563; }
+        .osk-space { flex: none; width: 60%; font-size: 13px; color: #6b7280; }
     </style>
 </head>
 <body>
@@ -260,6 +272,7 @@
         <div class="osk-row" id="oskRow1"></div>
         <div class="osk-row" id="oskRow2"></div>
         <div class="osk-row" id="oskRow3"></div>
+        <div class="osk-row" id="oskRow4"></div>
     </div>
 
     <script src="crossword.js"></script>
@@ -728,15 +741,17 @@
             const rows = [
                 ['Q','W','E','R','T','Y','U','I','O','P'],
                 ['A','S','D','F','G','H','J','K','L'],
-                ['BACKSPACE','Z','X','C','V','B','N','M','ENTER']
+                ['BACKSPACE','Z','X','C','V','B','N','M','ENTER'],
+                ['SPACE']
             ];
             rows.forEach((row, i) => {
                 const rowEl = document.getElementById('oskRow' + (i + 1));
                 row.forEach(key => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = (key === 'BACKSPACE' || key === 'ENTER') ? 'osk-key osk-action' : 'osk-key';
-                    btn.textContent = key === 'BACKSPACE' ? '⌫' : key === 'ENTER' ? '↵' : key;
+                    btn.className = (key === 'BACKSPACE' || key === 'ENTER') ? 'osk-key osk-action'
+                                  : key === 'SPACE' ? 'osk-key osk-space' : 'osk-key';
+                    btn.textContent = key === 'BACKSPACE' ? '⌫' : key === 'ENTER' ? '↵' : key === 'SPACE' ? 'spazio' : key;
                     // preventDefault su pointerdown impedisce che il click sposti il focus dall'input attivo
                     btn.addEventListener('pointerdown', e => e.preventDefault());
                     btn.addEventListener('click', () => handleOnScreenKey(key));
@@ -751,9 +766,19 @@
                 (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') &&
                 !el.readOnly && !el.disabled;
 
+            const isSingleCell = isWritable && parseInt(el.maxLength) === 1;
+
             if (key === 'BACKSPACE') {
-                if (isWritable) {
+                if (isSingleCell) {
                     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }));
+                } else if (isWritable) {
+                    // A synthetic keydown doesn't delete text in a free-text input: edit the value directly
+                    let s  = el.selectionStart ?? el.value.length;
+                    const e2 = el.selectionEnd ?? el.value.length;
+                    if (s === e2 && s > 0) s--;
+                    el.value = el.value.slice(0, s) + el.value.slice(e2);
+                    try { el.setSelectionRange(s, s); } catch(_) {}
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
                 }
                 return;
             }
@@ -763,10 +788,12 @@
                 }
                 return;
             }
-            // Tasto lettera
+            // Tasto lettera o spazio
+            if (key === 'SPACE') key = ' ';
             if (isWritable) {
-                if (parseInt(el.maxLength) === 1) {
-                    // Input cella singola (cruciverba, passa-e-spassa, SCR)
+                if (isSingleCell) {
+                    // Input cella singola (cruciverba, passa-e-spassa, SCR): una lettera, mai uno spazio
+                    if (key === ' ') return;
                     el.value = key;
                 } else {
                     // Input testo libero (guess-what)
