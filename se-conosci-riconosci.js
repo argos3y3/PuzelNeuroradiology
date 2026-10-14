@@ -57,7 +57,7 @@ class SeConosci {
             const pW    = this.container.clientWidth;
             const pH    = this.container.clientHeight;
             const gridW = Math.floor(pW * 0.62) - 40;
-            const gridH = pH - 40 - (hiddenSol ? 120 : 0);
+            const gridH = pH - 40 - (hiddenSol ? 120 : 30);
             const byW   = Math.floor((gridW - (totalCols - 1) * 2) / totalCols);
             const byH   = Math.floor((gridH - (totalRows - 1) * 2) / totalRows);
             return Math.max(14, Math.min(38, byW, byH));
@@ -68,9 +68,9 @@ class SeConosci {
             <div class="scr-layout">
                 <div class="scr-grid-area">
                     <div class="crossword-grid" id="cwGrid"></div>
+                    <div class="scr-status" id="scrStatus"></div>
                     ${hiddenSol ? `
                     <div class="scr-hidden-bar" id="scrHiddenBar">
-                        <div class="scr-hidden-prompt" id="scrHiddenPrompt">Dunque la parola nascosta è..?</div>
                         <div class="scr-hidden-row">
                             <label for="scrHiddenInput">Parola nascosta</label>
                             <input type="text" id="scrHiddenInput" autocomplete="off" autocapitalize="characters" spellcheck="false">
@@ -329,6 +329,7 @@ class SeConosci {
                 inp.readOnly = true;
             });
             document.getElementById('scrHiddenBar')?.remove();
+            document.getElementById('scrStatus')?.remove();
         });
 
         this.onStartTimer();
@@ -343,16 +344,23 @@ class SeConosci {
         return letters(typed) === letters(this.hiddenSolution);
     }
 
+    // Wrong rows never end the game: the only loss is the timer running out (game.html)
     checkCompletion() {
-        const allInputs  = [...document.querySelectorAll('.cw-cell input')];
-        const allFilled  = allInputs.every(inp => inp.value !== '');
-        const prompt     = document.getElementById('scrHiddenPrompt');
-        if (!allFilled) { prompt?.classList.remove('visible'); return; }
-        const allCorrect = allInputs.every(inp => inp.value === inp.dataset.correct);
-        if (!allCorrect) { this.onLose('Attenzione: alcune lettere sono sbagliate!'); return; }
+        const allInputs  = [...document.querySelectorAll('#cwGrid .cw-cell input')];
+        const status     = document.getElementById('scrStatus');
+        const setStatus  = (text, isError) => {
+            if (!status) return;
+            status.textContent = text;
+            status.classList.toggle('error', !!isError);
+        };
+        if (!allInputs.every(inp => inp.value !== '')) { setStatus(''); return; }
+        if (!allInputs.every(inp => inp.value === inp.dataset.correct)) {
+            setStatus('Alcune parole inserite sono errate, riprova.', true);
+            return;
+        }
         if (!this.hiddenSolution) { this.onWin('Cruciverba completato perfettamente!'); return; }
         // All rows are right: the game is won only by typing the hidden word
-        prompt?.classList.add('visible');
+        setStatus('Dunque la parola nascosta è..?');
         document.getElementById('scrHiddenInput')?.focus();
     }
 }
