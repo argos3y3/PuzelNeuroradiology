@@ -72,6 +72,7 @@
         /* Parola corretta — verde */
         .cw-cell.cw-cell-correct { background-color: #dcfce7 !important; }
         .cw-cell.cw-cell-correct input { color: #166534 !important; caret-color: #166534; cursor: default; }
+        .cw-cell.cw-cell-correct .cw-number { color: #166534 !important; }  /* white (selected) would vanish on green */
 
         /* Flash parola sbagliata — rosso */
         .cw-cell.cw-cell-wrong { background-color: #fee2e2 !important; }
@@ -83,9 +84,6 @@
         .cw-dir-inactive { font-size: calc(var(--cw-cell-size, 35px) * 0.27); color: rgba(0,0,0,0.28); }
 
         /* Popup zoom — fixed, pannello destra, non sovrapposto alla griglia, trascinabile */
-        .cw-zoom-popup { display: none; position: fixed; top: 80px; right: 20px; transform: none; z-index: 1000; background: white; border-radius: 14px; padding: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); width: 270px; border: 3px solid #7c3aed; cursor: move; user-select: none; }
-        .cw-zoom-popup img { width: 100%; border-radius: 8px; display: block; pointer-events: none; }
-        .cw-zoom-close { position: absolute; top: 8px; right: 8px; background: #7c3aed; color: white; border: none; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 0; }
 
         /* Pannello indizi */
         .img-viewer.cw-image-float { position: fixed; top: 90px; right: 24px; width: 340px; height: 400px; max-width: 90vw; max-height: 80vh; min-width: 220px; min-height: 200px; z-index: 950; resize: both; overflow: hidden; box-shadow: 0 12px 36px rgba(0,0,0,0.35); border: 3px solid #7c3aed; }
@@ -103,16 +101,6 @@
         .img-viewer-stage.zoomed { cursor: grab; }
         .img-viewer-stage img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
         .img-viewer-empty { position: absolute; top: 0; left: 0; right: 0; bottom: 0; margin: 0; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-style: italic; font-size: 14px; }
-        .clue-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); cursor: pointer; transition: background 0.15s; }
-        .clue-item:hover { background: #f3e8ff; }
-        .clue-item.active { background: #7c3aed; }
-        .clue-item.active .clue-number { color: white; }
-        .clue-item.active .clue-no-image { color: rgba(255,255,255,0.6); }
-        .clue-number { font-weight: bold; font-size: 18px; width: 30px; text-align: center; flex-shrink: 0; color: #222; }
-        .clue-img-wrapper { position: relative; display: inline-block; flex-shrink: 0; }
-        .clue-img-wrapper img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; display: block; }
-        .clue-zoom-btn { position: absolute; bottom: 4px; right: 4px; background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
-        .clue-no-image { font-style: italic; color: #bbb; font-size: 12px; }
 
         /* RADIAZIONE A CATENA STYLES */
         .rac-layout { display: flex; flex-direction: column; width: 100%; max-width: 900px; gap: 20px; overflow-y: auto; min-height: 0; }
@@ -168,30 +156,23 @@
         .ti-error { border-left: 4px solid #ef4444; background: #fef2f2; color: #b91c1c; padding: 10px 16px; border-radius: 0 8px 8px 0; font-size: 14px; display: none; width: 100%; max-width: 340px; box-sizing: border-box; }
 
         /* SE CONOSCI...RICONOSCI STYLES */
-        .scr-layout { position: relative; display: flex; width: 100%; max-width: 1200px; gap: 20px; height: 100%; }
-        .scr-grid-area { flex: 2; background: black; padding: 20px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+        .scr-layout { position: relative; display: flex; width: 100%; height: 100%; min-height: 0; }
+        .scr-grid-area { flex: 1; min-width: 0; background: black; padding: 20px; border-radius: 8px; overflow: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+        .scr-grid-area .crossword-grid { flex-shrink: 0; }
         .scr-hidden-bar { width: 100%; }
-        .scr-status { color: #f9a8d4; font-size: 17px; font-weight: 600; min-height: 24px; }
-        .scr-status.error { color: #fca5a5; }
-        .scr-hidden-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .scr-status { align-self: stretch; text-align: center; color: #f9a8d4; font-size: 17px; font-weight: 600; min-height: 24px; }
+        .scr-hidden-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
         .scr-hidden-row label { color: white; font-size: 13px; font-weight: 600; }
         .scr-hidden-row input { width: 240px; max-width: 100%; padding: 8px 12px; font-size: 16px; font-family: 'Poppins', sans-serif; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; border: 2px solid #f9a8d4; border-radius: 6px; outline: none; }
         .scr-hidden-row input:focus { border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236,72,153,0.35); }
         .scr-hidden-row input.scr-hidden-wrong { border-color: #dc2626; animation: scrShake 0.3s 2; }
         .scr-hidden-row button { background: #ec4899; color: white; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; }
-        .scr-hidden-error { color: #fca5a5; font-size: 13px; min-height: 18px; margin-top: 6px; }
+        .scr-hidden-error { text-align: center; color: #fca5a5; font-size: 13px; min-height: 18px; margin-top: 6px; }
         @keyframes scrShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        .scr-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
-        .scr-images { display: flex; flex-direction: column; gap: 10px; }
-        .scr-image-card { background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.15s; }
-        .scr-image-card:hover { background: #f3e8ff; }
-        .scr-image-card.active { background: #7c3aed; }
-        .scr-image-num { font-weight: bold; font-size: 15px; color: #222; display: block; margin-bottom: 6px; }
-        .scr-image-card.active .scr-image-num { color: white; }
-        .scr-img-wrapper { position: relative; display: block; }
-        .scr-img-wrapper img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; display: block; }
         .cw-cell.scr-hidden-cell { background-color: #fbcfe8; }
         .cw-cell.scr-hidden-cell.start-cell { background-color: #f9a8d4; }
+        /* a solved row turns green: the hidden-word letter keeps a pink frame */
+        .cw-cell.scr-hidden-cell.cw-cell-correct { box-shadow: inset 0 0 0 3px #ec4899; }
         .cw-cell.highlighted.scr-hidden-cell { background-color: #c026d3; }
 
         /* GUESS WHAT STYLES */

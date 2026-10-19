@@ -36,8 +36,8 @@ class SeConosci {
         // game is presented, so the vertical intersection letters no longer read
         // top-to-bottom in solution order (as in a real "filippino" schema).
         // Rows are saved in the order that spells the hidden word, so the numbers
-        // shown on rows and images follow the shuffled order too: numbering them
-        // by saved position would give the word away.
+        // shown on rows follow the shuffled order too: numbering them by saved
+        // position would give the word away.
         const rowOrder = placements.map((_, i) => i);
         for (let i = rowOrder.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -52,21 +52,11 @@ class SeConosci {
         const totalCols = Math.max(...placements.map(p => p.startX + p.text.length));
         const totalRows = placements.length;
 
-        // ── Cell size ─────────────────────────────────────────────────────
-        const calcCellSize = () => {
-            const pW    = this.container.clientWidth;
-            const pH    = this.container.clientHeight;
-            const gridW = Math.floor(pW * 0.62) - 40;
-            const gridH = pH - 40 - (hiddenSol ? 120 : 30);
-            const byW   = Math.floor((gridW - (totalCols - 1) * 2) / totalCols);
-            const byH   = Math.floor((gridH - (totalRows - 1) * 2) / totalRows);
-            return Math.max(14, Math.min(38, byW, byH));
-        };
-
         // ── HTML ──────────────────────────────────────────────────────────
+        // The grid takes the whole width; the row's picture is a floating window.
         this.container.innerHTML = `
             <div class="scr-layout">
-                <div class="scr-grid-area">
+                <div class="scr-grid-area" id="scrGridArea">
                     <div class="crossword-grid" id="cwGrid"></div>
                     <div class="scr-status" id="scrStatus"></div>
                     ${hiddenSol ? `
@@ -79,28 +69,38 @@ class SeConosci {
                         <div class="scr-hidden-error" id="scrHiddenError"></div>
                     </div>` : ''}
                 </div>
-                <div class="scr-panel">
-                    <div class="scr-images" id="scrImages"></div>
-                </div>
-                <div class="cw-zoom-popup" id="cwZoomPopup">
-                    <button type="button" class="cw-zoom-close" id="cwZoomClose">×</button>
-                    <img class="cw-zoom-img" id="cwZoomImg" src="" alt="">
-                </div>
+                <div class="cw-image-float" id="scrImageFloat"></div>
             </div>
         `;
 
-        const cwGrid      = document.getElementById('cwGrid');
-        const scrImages   = document.getElementById('scrImages');
-        const cwZoomPopup = document.getElementById('cwZoomPopup');
-        const cwZoomImg   = document.getElementById('cwZoomImg');
+        const cwGrid   = document.getElementById('cwGrid');
+        const gridArea = document.getElementById('scrGridArea');
+        const status   = document.getElementById('scrStatus');
+        const viewer   = createImageViewer(document.getElementById('scrImageFloat'), { floating: true });
 
-        const applyGridSize = (cs) => {
+        // ── Cell size ─────────────────────────────────────────────────────
+        // Sized on the space the grid really has (the black box minus the message line
+        // and the hidden-word bar), recomputed whenever it changes: the on-screen
+        // keyboard appears after this runs. If the grid still doesn't fit, the box scrolls.
+        const fitCellSize = () => {
+            const st  = getComputedStyle(gridArea);
+            const gap = parseFloat(st.rowGap) || 0;
+            const below = [...gridArea.children].filter(el => el !== cwGrid)
+                .reduce((h, el) => h + el.offsetHeight + gap, 0);
+            const availW = gridArea.clientWidth  - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+            const availH = gridArea.clientHeight - parseFloat(st.paddingTop)  - parseFloat(st.paddingBottom) - below;
+            const byW = Math.floor((availW - (totalCols - 1) * 2) / totalCols);
+            const byH = Math.floor((availH - (totalRows - 1) * 2) / totalRows);
+            return Math.max(12, Math.min(48, byW, byH));
+        };
+        const applyGridSize = () => {
+            const cs = fitCellSize();
             cwGrid.style.setProperty('--cw-cell-size', cs + 'px');
             cwGrid.style.gridTemplateColumns = `repeat(${totalCols}, ${cs}px)`;
             cwGrid.style.gridTemplateRows    = `repeat(${totalRows}, ${cs}px)`;
         };
-        applyGridSize(calcCellSize());
-        window.addEventListener('resize', () => applyGridSize(calcCellSize()));
+        applyGridSize();
+        new ResizeObserver(applyGridSize).observe(gridArea);
 
         // ── Grid cells ────────────────────────────────────────────────────
         const rowInputs = placements.map(() => []);
@@ -140,27 +140,63 @@ class SeConosci {
             }
         });
 
+        // ── Rows checked like in the crossword ────────────────────────────
+        // A completed row turns green and is locked when right; when wrong it flashes
+        // red and is emptied. Wrong rows never end the game: only the timer does.
+        const solvedRows = new Set();
+        const firstOpenRow = (from) => {
+            for (let i = 0; i < totalRows; i++) {
+                const r = (from + i) % totalRows;
+                if (!solvedRows.has(r)) return r;
+            }
+            return -1;
+        };
+        const checkRow = (rowIdx) => {
+            const rowArr = rowInputs[rowIdx];
+            if (rowArr.every(inp => inp.value === inp.dataset.correct)) {
+                solvedRows.add(rowIdx);
+                rowArr.forEach(inp => {
+                    inp.readOnly = true;
+                    inp.closest('.cw-cell').classList.add('cw-cell-correct');
+                });
+                const next = firstOpenRow(rowIdx + 1);
+                if (next === -1) allRowsSolved();
+                else rowInputs[next][0].focus();
+            } else {
+                rowArr.forEach(inp => inp.closest('.cw-cell').classList.add('cw-cell-wrong'));
+                setTimeout(() => {
+                    rowArr.forEach(inp => {
+                        inp.closest('.cw-cell').classList.remove('cw-cell-wrong');
+                        inp.value = '';
+                    });
+                    rowArr[0].focus();
+                }, 700);
+            }
+        };
+        const allRowsSolved = () => {
+            if (!hiddenSol) { this.onWin('Cruciverba completato perfettamente!'); return; }
+            // every row is right: the game is won only by typing the hidden word
+            status.textContent = 'Dunque la parola nascosta è..?';
+            document.getElementById('scrHiddenInput')?.focus();
+        };
+
         // ── Input event handling ──────────────────────────────────────────
         rowInputs.forEach((rowArr, rowIdx) => {
             rowArr.forEach((input, colIdx) => {
                 input.addEventListener('focus', () => selectRow(placements.find(pl => pl.row === rowIdx)));
 
                 input.addEventListener('input', () => {
+                    if (input.readOnly) return;
                     input.value = input.value.replace(/\s/g, '').toUpperCase();
-                    if (input.value !== '') {
-                        if (colIdx < rowArr.length - 1) {
-                            rowArr[colIdx + 1].focus();
-                        } else if (rowIdx < rowInputs.length - 1) {
-                            rowInputs[rowIdx + 1][0].focus();
-                        }
-                    }
-                    this.checkCompletion();
+                    if (input.value === '') return;
+                    if (rowArr.every(inp => inp.value !== '')) { checkRow(rowIdx); return; }
+                    if (colIdx < rowArr.length - 1) rowArr[colIdx + 1].focus();
                 });
 
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Backspace') {
                         // Like a normal keyboard: delete this letter, or from an empty
-                        // cell step back and delete the previous one
+                        // cell step back and delete the previous one (solved rows are locked)
                         e.preventDefault();
                         if (input.value) {
                             if (!input.readOnly) input.value = '';
@@ -172,7 +208,6 @@ class SeConosci {
                                 if (!prevInp.readOnly) prevInp.value = '';
                             }
                         }
-                        this.checkCompletion();
                     } else if (e.key === 'ArrowLeft' && colIdx > 0) {
                         e.preventDefault(); rowArr[colIdx - 1].focus();
                     } else if (e.key === 'ArrowRight' && colIdx < rowArr.length - 1) {
@@ -185,8 +220,10 @@ class SeConosci {
                         e.preventDefault();
                         const next = rowInputs[rowIdx + 1];
                         next[Math.min(colIdx, next.length - 1)].focus();
-                    } else if (e.key === 'Enter' && rowIdx < rowInputs.length - 1) {
-                        e.preventDefault(); rowInputs[rowIdx + 1][0].focus();
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const next = firstOpenRow(rowIdx + 1);
+                        if (next !== -1) rowInputs[next][0].focus();
                     }
                 });
             });
@@ -194,117 +231,23 @@ class SeConosci {
 
         if (rowInputs.length > 0) setTimeout(() => rowInputs[0][0]?.focus(), 100);
 
-        // ── Row highlight ─────────────────────────────────────────────────
-        let activeWordNum = null;
-
-        const highlightRow = (wordNum) => {
+        // ── Row highlight and picture ─────────────────────────────────────
+        const highlightRow = (p) => {
             cwGrid.querySelectorAll('.cw-cell.highlighted').forEach(c => c.classList.remove('highlighted'));
-            if (wordNum === null) return;
-            const p = placements.find(pl => pl.wordNum === wordNum);
-            if (!p) return;
             for (let k = 0; k < p.text.length; k++) {
-                const cell = keyToCell[`${p.row},${p.startX + k}`];
-                if (cell) cell.classList.add('highlighted');
+                keyToCell[`${p.row},${p.startX + k}`]?.classList.add('highlighted');
             }
         };
-
-        // ── Zoom ──────────────────────────────────────────────────────────
-        // ── Draggable zoom popup ──────────────────────────────────────────
-        {
-            let dx = 0, dy = 0, ox = 0, oy = 0, dragging = false;
-            cwZoomPopup.addEventListener('pointerdown', e => {
-                if (e.target.closest('.cw-zoom-close')) return;
-                dragging = true;
-                dx = e.clientX; dy = e.clientY;
-                const r = cwZoomPopup.getBoundingClientRect();
-                ox = r.left; oy = r.top;
-                cwZoomPopup.setPointerCapture(e.pointerId);
-                e.preventDefault();
-            });
-            cwZoomPopup.addEventListener('pointermove', e => {
-                if (!dragging) return;
-                cwZoomPopup.style.left      = ox + e.clientX - dx + 'px';
-                cwZoomPopup.style.top       = oy + e.clientY - dy + 'px';
-                cwZoomPopup.style.right     = 'auto';
-                cwZoomPopup.style.transform = 'none';
-            });
-            cwZoomPopup.addEventListener('pointerup',     () => { dragging = false; });
-            cwZoomPopup.addEventListener('pointercancel', () => { dragging = false; });
-        }
-
-        const showZoom = (src) => { if (!src || src === 'null') return; cwZoomImg.src = src; cwZoomPopup.style.display = 'block'; };
-        const hideZoom = () => { cwZoomPopup.style.display = 'none'; };
-
-        document.getElementById('cwZoomClose').addEventListener('click', (e) => {
-            e.stopPropagation(); hideZoom();
-            activeWordNum = null; highlightRow(null);
-            scrImages.querySelectorAll('.scr-image-card.active').forEach(c => c.classList.remove('active'));
-        });
-
-        // Selecting a row enlarges its image, as the 🔍 button does; moving to another
-        // row swaps the image (or hides it if that row has none). Unless forced, the
-        // same row doesn't reopen a popup the player closed.
-        let zoomedWordNum = null;
-        const selectRow = (p, force) => {
+        // Moving to another row shows its picture in the floating window (fitted);
+        // staying on the same row keeps the zoom the player chose.
+        let shownRow = null;
+        const selectRow = (p) => {
             if (!p) return;
-            scrImages.querySelectorAll('.scr-image-card.active').forEach(c => c.classList.remove('active'));
-            scrImages.querySelector(`.scr-image-card[data-word-num="${p.wordNum}"]`)?.classList.add('active');
-            activeWordNum = p.wordNum;
-            highlightRow(p.wordNum);
-            if (!force && zoomedWordNum === p.wordNum) return;
-            zoomedWordNum = p.wordNum;
-            if (p.image && p.image !== 'null') showZoom(p.image);
-            else hideZoom();
+            highlightRow(p);
+            if (shownRow === p.row) return;
+            shownRow = p.row;
+            viewer.show(p.image, String(p.wordNum));
         };
-
-        cwGrid.addEventListener('click', (e) => {
-            const input = e.target.closest('.cw-cell')?.querySelector('input');
-            if (!input) return;
-            selectRow(placements.find(pl => pl.row === parseInt(input.dataset.row)), true);
-        });
-
-        // ── Image clue panel ──────────────────────────────────────────────
-        placements.forEach(p => {
-            const card = document.createElement('div');
-            card.className       = 'scr-image-card';
-            card.dataset.wordNum = p.wordNum;
-
-            const num = document.createElement('span');
-            num.className   = 'scr-image-num';
-            num.textContent = p.wordNum;
-            card.appendChild(num);
-
-            if (p.image && p.image !== 'null') {
-                const wrap = document.createElement('div');
-                wrap.className = 'scr-img-wrapper';
-                const img = document.createElement('img');
-                img.src = p.image; img.alt = `Indizio ${p.wordNum}`;
-                wrap.appendChild(img);
-                const zBtn = document.createElement('button');
-                zBtn.type = 'button'; zBtn.className = 'clue-zoom-btn'; zBtn.textContent = '🔍';
-                zBtn.addEventListener('click', (e) => { e.stopPropagation(); showZoom(p.image); });
-                wrap.appendChild(zBtn);
-                card.appendChild(wrap);
-            }
-
-            card.addEventListener('mouseenter', () => highlightRow(p.wordNum));
-            card.addEventListener('mouseleave', () => highlightRow(activeWordNum));
-            card.addEventListener('click', () => {
-                scrImages.querySelectorAll('.scr-image-card.active').forEach(c => c.classList.remove('active'));
-                if (activeWordNum === p.wordNum) {
-                    activeWordNum = null; highlightRow(null); hideZoom();
-                } else {
-                    activeWordNum = p.wordNum;
-                    zoomedWordNum = p.wordNum;
-                    card.classList.add('active');
-                    highlightRow(p.wordNum);
-                    if (p.image && p.image !== 'null') showZoom(p.image);
-                    setTimeout(() => rowInputs[p.row]?.[0]?.focus(), 50);
-                }
-            });
-
-            scrImages.appendChild(card);
-        });
 
         // ── Hidden word bar ───────────────────────────────────────────────
         // Typing the hidden word wins at any time, even with rows still empty.
@@ -338,9 +281,10 @@ class SeConosci {
             document.querySelectorAll('#cwGrid .cw-cell input').forEach(inp => {
                 inp.value    = inp.dataset.correct;
                 inp.readOnly = true;
+                inp.closest('.cw-cell').classList.add('cw-cell-correct');
             });
             document.getElementById('scrHiddenBar')?.remove();
-            document.getElementById('scrStatus')?.remove();
+            status.remove();
         });
 
         this.onStartTimer();
@@ -353,25 +297,5 @@ class SeConosci {
         if (this.hiddenIsWord) return typed === this.hiddenSolution;
         const letters = (w) => [...w].sort().join('');
         return letters(typed) === letters(this.hiddenSolution);
-    }
-
-    // Wrong rows never end the game: the only loss is the timer running out (game.html)
-    checkCompletion() {
-        const allInputs  = [...document.querySelectorAll('#cwGrid .cw-cell input')];
-        const status     = document.getElementById('scrStatus');
-        const setStatus  = (text, isError) => {
-            if (!status) return;
-            status.textContent = text;
-            status.classList.toggle('error', !!isError);
-        };
-        if (!allInputs.every(inp => inp.value !== '')) { setStatus(''); return; }
-        if (!allInputs.every(inp => inp.value === inp.dataset.correct)) {
-            setStatus('Alcune parole inserite sono errate, riprova.', true);
-            return;
-        }
-        if (!this.hiddenSolution) { this.onWin('Cruciverba completato perfettamente!'); return; }
-        // All rows are right: the game is won only by typing the hidden word
-        setStatus('Dunque la parola nascosta è..?');
-        document.getElementById('scrHiddenInput')?.focus();
     }
 }
