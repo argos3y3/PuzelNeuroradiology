@@ -365,11 +365,15 @@ class Crossword {
                     if (entry && entry.letterIdx > 0) {
                         const { wp, letterIdx } = entry;
                         const prevKey = `${wp.x + (letterIdx-1)*wp.dirX},${wp.y + (letterIdx-1)*wp.dirY}`;
-                        if (keyToInput[prevKey]) {
-                            // Sblocca temporaneamente se necessario
-                            if (keyToInput[prevKey].readOnly) tempUnlock(prevKey);
+                        const prevInp = keyToInput[prevKey];
+                        if (prevInp) {
+                            // Like a normal keyboard: from an empty cell, step back and delete
+                            // that letter, unless it belongs to a word already solved
+                            const solvedLetter = prevInp.readOnly || tempUnlocked.has(prevKey);
+                            if (prevInp.readOnly) tempUnlock(prevKey);
                             setActive(prevKey, activeDir);
-                            keyToInput[prevKey].focus();
+                            prevInp.focus();
+                            if (!solvedLetter) prevInp.value = '';
                         }
                     }
                 } else if (e.key === 'ArrowLeft') {

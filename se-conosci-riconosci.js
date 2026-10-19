@@ -159,9 +159,20 @@ class SeConosci {
 
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Backspace') {
-                        e.preventDefault(); input.value = '';
-                        if (colIdx > 0) rowArr[colIdx - 1].focus();
-                        else if (rowIdx > 0) rowInputs[rowIdx - 1][rowInputs[rowIdx - 1].length - 1].focus();
+                        // Like a normal keyboard: delete this letter, or from an empty
+                        // cell step back and delete the previous one
+                        e.preventDefault();
+                        if (input.value) {
+                            if (!input.readOnly) input.value = '';
+                        } else {
+                            const prevInp = colIdx > 0 ? rowArr[colIdx - 1]
+                                : rowIdx > 0 ? rowInputs[rowIdx - 1][rowInputs[rowIdx - 1].length - 1] : null;
+                            if (prevInp) {
+                                prevInp.focus();
+                                if (!prevInp.readOnly) prevInp.value = '';
+                            }
+                        }
+                        this.checkCompletion();
                     } else if (e.key === 'ArrowLeft' && colIdx > 0) {
                         e.preventDefault(); rowArr[colIdx - 1].focus();
                     } else if (e.key === 'ArrowRight' && colIdx < rowArr.length - 1) {

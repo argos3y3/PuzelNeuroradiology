@@ -78,7 +78,10 @@ function initPassaESpassa(container, phrases, callbacks) {
                                 if (box.value) {
                                     box.value = '';
                                 } else {
+                                    // Like a normal keyboard: step back and delete the previous letter
                                     focusPrev(gi);
+                                    const prev = document.activeElement;
+                                    if (prev !== box && allInputEls.includes(prev) && !prev.closest('.pps-correct')) prev.value = '';
                                 }
                             } else if (e.key === 'ArrowLeft') {
                                 e.preventDefault();

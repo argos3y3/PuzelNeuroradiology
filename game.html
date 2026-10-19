@@ -223,8 +223,9 @@
         /* ON-SCREEN KEYBOARD */
         body.show-osk { padding-bottom: 213px; }
         #onScreenKeyboard { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #d1d5db; padding: 8px 6px 14px; box-shadow: 0 -2px 8px rgba(0,0,0,0.18); z-index: 900; user-select: none; touch-action: manipulation; }
-        .osk-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 6px; max-width: 560px; margin-left: auto; margin-right: auto; }
+        .osk-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 6px; max-width: 620px; margin-left: auto; margin-right: auto; }
         .osk-row:last-child { margin-bottom: 0; }
+        #oskRow3 { padding: 0 9%; }
         .osk-key { flex: 1; height: 42px; background: white; border: none; border-radius: 5px; box-shadow: 0 2px 0 #9ca3af; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; color: #111827; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .osk-key:active { background: #e5e7eb; transform: translateY(1px); box-shadow: 0 1px 0 #9ca3af; }
         .osk-action { background: #9ca3af; color: white; flex: 1.5; font-size: 13px; box-shadow: 0 2px 0 #6b7280; }
@@ -235,7 +236,6 @@
 <body>
     
     <!-- Audio Elements for Win/Lose -->
-    <audio id="audioWin" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"></audio>
     <audio id="audioLose" src="https://assets.mixkit.co/active_storage/sfx/3183/3183-preview.mp3"></audio>
 
     <a href="index.html" class="btn-exit">⬅ Torna alla Dashboard</a>
@@ -393,8 +393,49 @@
         // --- WIN / LOSE LOGIC ---
         const resultOverlay = document.getElementById('resultOverlay');
         const resultModal = document.getElementById('resultModal');
-        const audioWin = document.getElementById('audioWin');
         const audioLose = document.getElementById('audioLose');
+
+        // Short cheerful jingle synthesized in the browser: no file to download, works offline.
+        // Browsers only allow audio after a user gesture, so the context is unlocked on the
+        // first tap/key and is ready by the time the game is won.
+        let _audioCtx = null;
+        const _unlockAudio = () => {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!_audioCtx && AC) _audioCtx = new AC();
+            if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
+        };
+        ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, _unlockAudio, { passive: true }));
+        function playWinJingle() {
+            _unlockAudio();
+            const ctx = _audioCtx;
+            if (!ctx) return;
+            const t0 = ctx.currentTime + 0.05;
+            const note = (freq, start, dur, vol, type) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type || 'triangle';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.0001, t0 + start);
+                gain.gain.exponentialRampToValueAtTime(vol, t0 + start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + start + dur);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t0 + start);
+                osc.stop(t0 + start + dur + 0.05);
+            };
+            // rising C-major arpeggio, then a bright final chord
+            [[523.25, 0], [659.25, 0.12], [783.99, 0.24], [1046.5, 0.36]].forEach(([f, st]) => note(f, st, 0.22, 0.18));
+            [523.25, 659.25, 783.99, 1046.5].forEach(f => note(f, 0.52, 0.9, 0.12));
+            note(1318.5, 0.52, 0.9, 0.06, 'sine');
+        }
+
+        const LOSE_ICON = `<svg width="120" height="84" viewBox="0 0 120 84" aria-hidden="true">
+            <circle cx="92" cy="20" r="11" fill="#fbbf24"/>
+            <path d="M0 82 L38 20 L58 50 L74 30 L120 82 Z" fill="#64748b"/>
+            <path d="M38 20 L29 35 L35 33 L39 38 L45 31 Z" fill="#fff"/>
+            <path d="M74 30 L67 40 L72 39 L76 43 L80 37 Z" fill="#fff"/>
+            <path d="M8 82 L18 62 L28 82 Z M22 82 L32 58 L42 82 Z M86 82 L96 64 L106 82 Z" fill="#15803d"/>
+        </svg>`;
 
         function endGame(isWin, message = "") {
             if (solutionShown) return;
@@ -404,14 +445,14 @@
 
             if (isWin) {
                 resultModal.className = 'result-modal win';
-                document.getElementById('resultIcon').innerText = '🏆';
+                document.getElementById('resultIcon').textContent = '🏆';
                 document.getElementById('resultTitle').innerText = 'Hai Vinto!';
                 document.getElementById('resultText').innerText = message || "Bravissimo, hai completato l'attività.";
-                audioWin.play();
+                playWinJingle();
             } else {
                 resultModal.className = 'result-modal lose';
-                document.getElementById('resultIcon').innerText = '💀';
-                document.getElementById('resultTitle').innerText = 'Hai Perso!';
+                document.getElementById('resultIcon').innerHTML = LOSE_ICON;
+                document.getElementById('resultTitle').innerText = 'Respira: sei in Trentino';
                 document.getElementById('resultText').innerText = message || "Ritenta, sarai più fortunato.";
                 audioLose.play();
             }
@@ -728,6 +769,14 @@
         if (!gamesNoOSK.includes(activityData.templateKey || '') && !_solutionOnly) {
             document.body.classList.add('show-osk');
             document.getElementById('onScreenKeyboard').style.display = 'block';
+
+            // inputmode="none" keeps the touchscreen's own keyboard from opening over the
+            // game (a physical keyboard still works). Inputs created later are covered too.
+            const gameBox = document.getElementById('gameContainer');
+            const noNativeKeyboard = () => gameBox.querySelectorAll('input, textarea')
+                .forEach(el => { if (el.getAttribute('inputmode') !== 'none') el.setAttribute('inputmode', 'none'); });
+            noNativeKeyboard();
+            new MutationObserver(noNativeKeyboard).observe(gameBox, { childList: true, subtree: true });
         }
 
         // --- MODALITÀ SOLO SOLUZIONE (?solution=1) ---
@@ -740,9 +789,9 @@
         // Costruzione tasti QWERTY
         ;(function() {
             const rows = [
-                ['Q','W','E','R','T','Y','U','I','O','P'],
-                ['A','S','D','F','G','H','J','K','L'],
-                ['BACKSPACE','Z','X','C','V','B','N','M','ENTER'],
+                ['Q','W','E','R','T','Y','U','I','O','P','BACKSPACE'],
+                ['A','S','D','F','G','H','J','K','L','ENTER'],
+                ['Z','X','C','V','B','N','M'],
                 ['SPACE']
             ];
             rows.forEach((row, i) => {
