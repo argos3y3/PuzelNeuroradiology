@@ -5,17 +5,12 @@ function initPassaESpassa(container, phrases, callbacks) {
         return;
     }
 
-    container.innerHTML = `
-        <div class="pps-layout">
-            <div id="ppsCards"></div>
-            <div class="pps-footer">
-                <button type="button" class="pps-check-btn" id="ppsCheck">VERIFICA</button>
-            </div>
-        </div>
-    `;
+    container.innerHTML = `<div class="pps-layout" id="ppsCards"></div>`;
 
     const cardsContainer = document.getElementById('ppsCards');
     const allBlanks   = [];
+    // The keyboard has no accents: compare letters without them (E is accepted for È)
+    const plain = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     const allInputEls = []; // flat, ordered list of every letter-box across all phrases
 
     function focusNext(fromIdx) {
@@ -45,8 +40,12 @@ function initPassaESpassa(container, phrases, callbacks) {
 
         const topRow      = document.createElement('div');
         topRow.className  = 'pps-top';
+        // the outer box has the available size; the inner one is the text, measured to fit
+        const sentenceBox = document.createElement('div');
+        sentenceBox.className = 'pps-sentence';
         const sentenceDiv = document.createElement('div');
-        sentenceDiv.className = 'pps-sentence';
+        sentenceDiv.className = 'pps-sentence-inner';
+        sentenceBox.appendChild(sentenceDiv);
 
         tokens.forEach((token, idx) => {
             if (idx > 0) sentenceDiv.appendChild(document.createTextNode(' '));
@@ -95,13 +94,12 @@ function initPassaESpassa(container, phrases, callbacks) {
                         });
 
                         box.addEventListener('input', () => {
-                            if (group.classList.contains('pps-correct')) { box.value = ''; return; }
+                            if (group.classList.contains('pps-correct')) return;
                             const cleaned = box.value.replace(/\s/g, '');
                             box.value = cleaned ? cleaned[cleaned.length - 1].toUpperCase() : '';
-                            if (box.value) {
-                                const gi = allInputEls.indexOf(box);
-                                focusNext(gi);
-                            }
+                            if (!box.value) return;
+                            if (inputEls.every(i => i.value)) { checkBlank(blank); return; }
+                            focusNext(allInputEls.indexOf(box));
                         });
 
                         box.addEventListener('focus', () => box.select());
@@ -119,51 +117,70 @@ function initPassaESpassa(container, phrases, callbacks) {
                     }
                 });
 
-                allBlanks.push({ el: group, parts, inputEls });
+                const blank = { el: group, parts, inputEls };
+                allBlanks.push(blank);
                 sentenceDiv.appendChild(group);
             } else {
                 sentenceDiv.appendChild(document.createTextNode(token));
             }
         });
 
-        topRow.appendChild(sentenceDiv);
+        topRow.appendChild(sentenceBox);
 
         if (phrase.image && phrase.image !== 'null') {
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'pps-image-wrap';
             const img = document.createElement('img');
             img.src       = phrase.image;
             img.className = 'pps-image';
-            topRow.appendChild(img);
+            imgWrap.appendChild(img);
+            topRow.appendChild(imgWrap);
         }
 
         card.appendChild(topRow);
         cardsContainer.appendChild(card);
     });
 
-    document.getElementById('ppsCheck').addEventListener('click', () => {
-        allBlanks.forEach(({ el: group, parts, inputEls }) => {
-            if (group.classList.contains('pps-correct')) return;
-            if (!inputEls.some(i => i.value)) return; // skip fully empty
-
-            const typed   = parts.map(p => p.type === 'input' ? p.el.value : p.char).join('');
-            const correct = group.dataset.correct;
-
-            if (typed.toUpperCase() === correct.toUpperCase()) {
-                group.classList.add('pps-correct');
-                inputEls.forEach(i => { i.readOnly = true; });
-            } else {
-                group.classList.add('pps-wrong');
-                setTimeout(() => {
-                    group.classList.remove('pps-wrong');
-                    inputEls.forEach(i => { i.value = ''; i.readOnly = false; });
-                    if (inputEls.length) inputEls[0].focus();
-                }, 900);
+    // A word is checked as soon as all its letters are typed, like in the crossword:
+    // right → green and locked; wrong → red, then emptied to try again.
+    function checkBlank({ el: group, parts, inputEls }) {
+        const typed = parts.map(p => p.type === 'input' ? p.el.value : p.char).join('');
+        if (plain(typed) === plain(group.dataset.correct)) {
+            group.classList.add('pps-correct');
+            inputEls.forEach(i => { i.readOnly = true; });
+            if (allBlanks.every(b => b.el.classList.contains('pps-correct'))) {
+                callbacks.onWin('Complimenti! Tutti gli spazi sono corretti!');
+                return;
             }
-        });
+            focusNext(allInputEls.indexOf(inputEls[inputEls.length - 1]));
+        } else {
+            group.classList.add('pps-wrong');
+            setTimeout(() => {
+                group.classList.remove('pps-wrong');
+                inputEls.forEach(i => { i.value = ''; });
+                inputEls[0].focus();
+            }, 700);
+        }
+    }
 
-        const total   = allBlanks.length;
-        const correct = allBlanks.filter(({ el }) => el.classList.contains('pps-correct')).length;
-        if (correct === total) callbacks.onWin('Complimenti! Tutti gli spazi sono corretti!');
-    });
+    // Text as big as its box allows: the largest font size at which the sentence
+    // (and its letter boxes, sized in em) still fits. Redone whenever the space changes,
+    // e.g. when the on-screen keyboard appears.
+    function fitText() {
+        cardsContainer.querySelectorAll('.pps-sentence').forEach(box => {
+            const inner = box.firstElementChild;
+            let lo = 14, hi = 80;
+            while (hi - lo > 1) {
+                const mid = Math.floor((lo + hi) / 2);
+                box.style.fontSize = mid + 'px';
+                if (inner.scrollHeight <= box.clientHeight && inner.scrollWidth <= box.clientWidth) lo = mid;
+                else hi = mid;
+            }
+            box.style.fontSize = lo + 'px';
+        });
+    }
+    fitText();
+    new ResizeObserver(fitText).observe(cardsContainer);
 
     callbacks.onRegisterSolution?.(() => {
         allBlanks.forEach(({ el: group, parts }) => {
