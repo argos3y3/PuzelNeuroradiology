@@ -72,14 +72,16 @@ Editor, `folders.js` e `index.js` modificano le cartelle solo con transazioni Fi
 [play.html](play.html) è il punto d'ingresso per siti esterni, pensato per essere usato come `src` di un iframe:
 
 ```
-https://anatomiadi.eu/play.html?zona=TC&difficolta=2[&tipo=crossword]
+https://anatomiadi.eu/play.html?zona=TC&difficolta=2[&tipo=CW]
 ```
+
+I valori ammessi sono pubblicati in [catalogo.json](catalogo.json) (`https://anatomiadi.eu/catalogo.json`, leggibile anche da altri domini), che è anche la fonte usata da `play.html` per validarli:
 
 | Parametro | Valori | Note |
 |---|---|---|
 | `zona` | `CTV` cardio toracovascolare, `SN` sistema nervoso, `AP` addome pelvi, `MS` muscolo scheletrico, `TC` testa collo | obbligatorio |
-| `difficolta` | `1`, `2`, `3` | obbligatorio |
-| `tipo` | `crossword`, `hangman`, `trova-intruso`, `radiazione-a-catena`, `se-conosci-riconosci`, `guess-what`, `passa-e-spassa` | facoltativo |
+| `difficolta` | `1` base, `2` intermedio, `3` avanzato | obbligatorio |
+| `tipo` | `CW` Crucitomo, `TT` Il tempo è tiranno, `INTR` Trova l'Intruso, `RC` Radiazione a Catena, `ACR` Se Conosci…Riconosci, `GW` Guess What, `PSP` Passa e Spassa — oppure gli alias lunghi (`crossword`, `hangman`, `trova-intruso`, `radiazione-a-catena`, `se-conosci-riconosci`, `guess-what`, `passa-e-spassa`) | facoltativo |
 
 - Sceglie a caso un'attività con quella zona (un'attività multi-zona vale per ognuna delle sue zone) e quella difficoltà, e la apre in `game.html?id=…&embed=1`. In modalità embed sono nascosti i link verso le pagine interne del sito.
 - Nessuna ripetizione nella stessa sessione del browser finché non sono state servite tutte le attività compatibili. Per ottenerne un'altra basta reimpostare il `src` dell'iframe su `play.html`.

@@ -21,11 +21,9 @@
         // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
         (async () => {
 
-        // Entry point for external sites: play.html?zona=TC&difficolta=2[&tipo=crossword]
+        // Entry point for external sites: play.html?zona=TC&difficolta=2[&tipo=CW]
         // picks one random matching activity and opens it in embed mode.
-        const ZONES = ['CTV', 'SN', 'AP', 'MS', 'TC'];
-        const TYPES = ['crossword', 'hangman', 'trova-intruso', 'radiazione-a-catena',
-                       'se-conosci-riconosci', 'guess-what', 'passa-e-spassa'];
+        // Allowed values come from catalogo.json, the same list published to integrators.
         const AGENTE_FOLDER_ID = 'agente_selezione';
 
         const msgEl = document.getElementById('msg');
@@ -41,14 +39,30 @@
         const params     = new URLSearchParams(location.search);
         const zona       = (params.get('zona') || '').trim().toUpperCase();
         const difficolta = parseInt(params.get('difficolta'), 10);
-        const tipo       = (params.get('tipo') || '').trim() || null;
+        const tipoParam  = (params.get('tipo') || '').trim();
+
+        let catalogo;
+        try {
+            catalogo = await (await fetch('catalogo.json', { cache: 'no-cache' })).json();
+        } catch (err) {
+            console.error(err);
+            fail('load-error', 'Errore nel caricamento degli esercizi. Riprova tra poco.');
+            return;
+        }
+        const ZONES  = catalogo.zona.map(z => z.codice);
+        const LEVELS = catalogo.difficolta.map(d => d.codice);
+        // tipo accepts the short code (CW, TT, ...) or the long alias (crossword, hangman, ...)
+        const tipoEntry = tipoParam
+            ? catalogo.tipo.find(t => t.codice === tipoParam.toUpperCase() || t.alias === tipoParam.toLowerCase())
+            : null;
+        const tipo = tipoEntry ? tipoEntry.alias : null; // activities store the long alias
 
         if (!ZONES.includes(zona)) {
             fail('invalid-params', `Zona del corpo non valida: "${zona}". Valori ammessi: ${ZONES.join(', ')}.`, { zona });
-        } else if (![1, 2, 3].includes(difficolta)) {
-            fail('invalid-params', `Difficoltà non valida: "${params.get('difficolta') ?? ''}". Valori ammessi: 1, 2, 3.`, { difficolta: params.get('difficolta') });
-        } else if (tipo && !TYPES.includes(tipo)) {
-            fail('invalid-params', `Tipo di gioco non valido: "${tipo}". Valori ammessi: ${TYPES.join(', ')}.`, { tipo });
+        } else if (!LEVELS.includes(difficolta)) {
+            fail('invalid-params', `Difficoltà non valida: "${params.get('difficolta') ?? ''}". Valori ammessi: ${LEVELS.join(', ')}.`, { difficolta: params.get('difficolta') });
+        } else if (tipoParam && !tipoEntry) {
+            fail('invalid-params', `Tipo di gioco non valido: "${tipoParam}". Valori ammessi: ${catalogo.tipo.map(t => t.codice).join(', ')}.`, { tipo: tipoParam });
         } else {
             try {
                 await pickAndOpen();
@@ -76,8 +90,8 @@
             });
 
             if (candidates.length === 0) {
-                fail('no-match', `Nessun esercizio disponibile per zona ${zona}, difficoltà ${difficolta}${tipo ? `, tipo ${tipo}` : ''}.`,
-                     { zona, difficolta, tipo });
+                fail('no-match', `Nessun esercizio disponibile per zona ${zona}, difficoltà ${difficolta}${tipoEntry ? `, tipo ${tipoEntry.codice}` : ''}.`,
+                     { zona, difficolta, tipo: tipoEntry ? tipoEntry.codice : null });
                 return;
             }
 

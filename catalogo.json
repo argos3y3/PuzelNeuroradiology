@@ -1,0 +1,26 @@
+{
+  "versione": 1,
+  "endpoint": "https://anatomiadi.eu/play.html?zona={zona}&difficolta={difficolta}&tipo={tipo}",
+  "note": "zona e difficolta sono obbligatori, tipo è facoltativo. Per tipo è accettato sia il codice sia l'alias.",
+  "zona": [
+    { "codice": "CTV", "nome": "Cardio toracovascolare" },
+    { "codice": "SN",  "nome": "Sistema nervoso" },
+    { "codice": "AP",  "nome": "Addome pelvi" },
+    { "codice": "MS",  "nome": "Muscolo scheletrico" },
+    { "codice": "TC",  "nome": "Testa collo" }
+  ],
+  "difficolta": [
+    { "codice": 1, "nome": "Base" },
+    { "codice": 2, "nome": "Intermedio" },
+    { "codice": 3, "nome": "Avanzato" }
+  ],
+  "tipo": [
+    { "codice": "CW",   "alias": "crossword",            "nome": "Crucitomo" },
+    { "codice": "TT",   "alias": "hangman",              "nome": "Il tempo è tiranno" },
+    { "codice": "INTR", "alias": "trova-intruso",        "nome": "Trova l'Intruso" },
+    { "codice": "RC",   "alias": "radiazione-a-catena",  "nome": "Radiazione a Catena" },
+    { "codice": "ACR",  "alias": "se-conosci-riconosci", "nome": "Se Conosci...Riconosci" },
+    { "codice": "GW",   "alias": "guess-what",           "nome": "Guess What" },
+    { "codice": "PSP",  "alias": "passa-e-spassa",       "nome": "Passa e Spassa" }
+  ]
+}
