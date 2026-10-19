@@ -339,11 +339,17 @@ class Crossword {
             }, 700);
         };
 
+        // A word is judged when it is full, or when its last letter is typed in the
+        // direction being written: reaching the end with gaps (e.g. starting from the
+        // middle) counts as a wrong answer and empties the word.
         const checkWordCompletion = (key, triggerDir) => {
-            (cellWords[key] || []).forEach(({ wp }) => {
+            (cellWords[key] || []).forEach(({ wp, letterIdx }) => {
                 if (correctWords.has(wp.originalIndex)) return;
                 const inputs = wordCellKeys[wp.originalIndex].map(k => keyToInput[k]);
-                if (!inputs.every(inp => inp && inp.value !== '')) return;
+                if (!inputs.every(inp => inp && inp.value !== '')) {
+                    if (dirOf(wp) === triggerDir && letterIdx === wp.text.length - 1) flashAndClear(wp, triggerDir);
+                    return;
+                }
                 const typed = inputs.map(inp => inp.value).join('');
                 if (typed === wp.text) markWordCorrect(wp);
                 else flashAndClear(wp, triggerDir);

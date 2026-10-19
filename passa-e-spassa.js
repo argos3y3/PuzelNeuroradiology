@@ -99,6 +99,8 @@ function initPassaESpassa(container, phrases, callbacks) {
                             box.value = cleaned ? cleaned[cleaned.length - 1].toUpperCase() : '';
                             if (!box.value) return;
                             if (inputEls.every(i => i.value)) { checkBlank(blank); return; }
+                            // reaching the last letter with gaps (started from the middle) is a wrong answer
+                            if (box === inputEls[inputEls.length - 1]) { blankWrong(blank); return; }
                             focusNext(allInputEls.indexOf(box));
                         });
 
@@ -154,13 +156,16 @@ function initPassaESpassa(container, phrases, callbacks) {
             }
             focusNext(allInputEls.indexOf(inputEls[inputEls.length - 1]));
         } else {
-            group.classList.add('pps-wrong');
-            setTimeout(() => {
-                group.classList.remove('pps-wrong');
-                inputEls.forEach(i => { i.value = ''; });
-                inputEls[0].focus();
-            }, 700);
+            blankWrong({ el: group, inputEls });
         }
+    }
+    function blankWrong({ el: group, inputEls }) {
+        group.classList.add('pps-wrong');
+        setTimeout(() => {
+            group.classList.remove('pps-wrong');
+            inputEls.forEach(i => { i.value = ''; });
+            inputEls[0].focus();
+        }, 700);
     }
 
     // Text as big as its box allows: the largest font size at which the sentence

@@ -151,6 +151,17 @@ class SeConosci {
             }
             return -1;
         };
+        const rowWrong = (rowIdx) => {
+            const rowArr = rowInputs[rowIdx];
+            rowArr.forEach(inp => inp.closest('.cw-cell').classList.add('cw-cell-wrong'));
+            setTimeout(() => {
+                rowArr.forEach(inp => {
+                    inp.closest('.cw-cell').classList.remove('cw-cell-wrong');
+                    inp.value = '';
+                });
+                rowArr[0].focus();
+            }, 700);
+        };
         const checkRow = (rowIdx) => {
             const rowArr = rowInputs[rowIdx];
             if (rowArr.every(inp => inp.value === inp.dataset.correct)) {
@@ -163,14 +174,7 @@ class SeConosci {
                 if (next === -1) allRowsSolved();
                 else rowInputs[next][0].focus();
             } else {
-                rowArr.forEach(inp => inp.closest('.cw-cell').classList.add('cw-cell-wrong'));
-                setTimeout(() => {
-                    rowArr.forEach(inp => {
-                        inp.closest('.cw-cell').classList.remove('cw-cell-wrong');
-                        inp.value = '';
-                    });
-                    rowArr[0].focus();
-                }, 700);
+                rowWrong(rowIdx);
             }
         };
         const allRowsSolved = () => {
@@ -190,7 +194,9 @@ class SeConosci {
                     input.value = input.value.replace(/\s/g, '').toUpperCase();
                     if (input.value === '') return;
                     if (rowArr.every(inp => inp.value !== '')) { checkRow(rowIdx); return; }
-                    if (colIdx < rowArr.length - 1) rowArr[colIdx + 1].focus();
+                    // reaching the end of the row with gaps (started from the middle) is a wrong answer
+                    if (colIdx === rowArr.length - 1) { rowWrong(rowIdx); return; }
+                    rowArr[colIdx + 1].focus();
                 });
 
                 input.addEventListener('keydown', (e) => {
