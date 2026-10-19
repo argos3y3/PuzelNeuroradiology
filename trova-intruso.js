@@ -1,10 +1,23 @@
-function initTrovaIntruso(container, images, callbacks) {
+// commonQuestion (optional, set in the editor): { options: [...], correctIndex }. When present,
+// finding the right images opens the question "Cosa hanno in comune le immagini?" and its
+// answer decides the closing message; without it the images alone decide.
+function initTrovaIntruso(container, images, callbacks, commonQuestion) {
     // Randomize the on-screen order on every play, so the intruder's position
     // isn't memorizable across attempts.
     images = [...images];
     for (let i = images.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [images[i], images[j]] = [images[j], images[i]];
+    }
+
+    const question = commonQuestion && Array.isArray(commonQuestion.options) &&
+                     commonQuestion.options.length >= 2 ? commonQuestion : null;
+    const rightAnswer = question ? question.options[question.correctIndex] : '';
+    // options in a new random order on every play, like the images
+    const options = question ? question.options.map((text, i) => ({ text, correct: i === question.correctIndex })) : [];
+    for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
     }
 
     container.innerHTML = `
@@ -20,6 +33,13 @@ function initTrovaIntruso(container, images, callbacks) {
             <button type="button" class="ti-zoom-close" id="tiZoomClose">×</button>
             <img class="ti-zoom-img" id="tiZoomImg" src="" alt="">
         </div>
+        <div class="ti-question-popup" id="tiQuestionPopup">
+            <div class="ti-question-box">
+                <button type="button" class="ti-question-close" id="tiQuestionClose" title="Torna alle immagini">×</button>
+                <div class="ti-question-title">Cosa hanno in comune le immagini?</div>
+                <div class="ti-question-options" id="tiQuestionOptions"></div>
+            </div>
+        </div>
     `;
 
     const tiGrid    = document.getElementById('tiGrid');
@@ -33,8 +53,34 @@ function initTrovaIntruso(container, images, callbacks) {
 
     document.getElementById('tiZoomClose').addEventListener('click', closeZoom);
     zoomPopup.addEventListener('click', (e) => { if (e.target === zoomPopup) closeZoom(); });
+    const questionPopup = document.getElementById('tiQuestionPopup');
+    const openQuestion  = () => { questionPopup.style.display = 'flex'; };
+    const closeQuestion = () => { questionPopup.style.display = 'none'; };
+    // closing it goes back to the images; UNLOCK asks again
+    document.getElementById('tiQuestionClose').addEventListener('click', closeQuestion);
+
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && zoomPopup.style.display === 'flex') closeZoom();
+        if (e.key !== 'Escape') return;
+        if (zoomPopup.style.display === 'flex') closeZoom();
+        else if (questionPopup.style.display === 'flex') closeQuestion();
+    });
+
+    const IMAGES_RIGHT = 'Hai selezionato correttamente tutte le strutture della stessa categoria';
+    const optionsBox = document.getElementById('tiQuestionOptions');
+    options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ti-option-btn';
+        btn.innerHTML = `<span class="ti-option-letter">${String.fromCharCode(65 + i)}</span><span></span>`;
+        btn.lastChild.textContent = opt.text;
+        btn.addEventListener('click', () => {
+            closeQuestion();
+            // images right but answer wrong: still a win for now, with the mistake spelled out
+            if (opt.correct) callbacks.onWin(`${IMAGES_RIGHT} e hai riconosciuto cosa hanno in comune: ${rightAnswer}.`);
+            else callbacks.onWin(`${IMAGES_RIGHT}.`,
+                `Però la risposta alla domanda è sbagliata: hai scelto «${opt.text}», quella giusta era «${rightAnswer}».`);
+        });
+        optionsBox.appendChild(btn);
     });
 
     const selected = new Set();
@@ -80,11 +126,9 @@ function initTrovaIntruso(container, images, callbacks) {
         const correct = selected.size === nonIntrusoIndices.size &&
                         [...selected].every(i => nonIntrusoIndices.has(i));
 
-        if (correct) {
-            callbacks.onWin('Hai selezionato correttamente tutte le strutture della stessa categoria!');
-        } else {
-            tiError.style.display = 'block';
-        }
+        if (!correct) tiError.style.display = 'block';
+        else if (question) openQuestion();
+        else callbacks.onWin(`${IMAGES_RIGHT}!`);
     });
 
     callbacks.onRegisterSolution?.(() => {
@@ -93,6 +137,14 @@ function initTrovaIntruso(container, images, callbacks) {
             cards[idx]?.classList.toggle('selected', !item.isIntruso);
         });
         tiError.style.display = 'none';
+        closeQuestion();
+        if (question) {
+            const instr = container.querySelector('.ti-instruction');
+            instr.textContent = 'Cosa hanno in comune le immagini? ';
+            const b = document.createElement('strong');
+            b.textContent = rightAnswer;
+            instr.appendChild(b);
+        }
     });
 
     callbacks.onStartTimer();

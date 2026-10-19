@@ -52,7 +52,7 @@ Contratto comune: `new/init(container, dati, { onWin, onLose, onStartTimer, onRe
 | Collection | Doc id | Contenuto |
 |---|---|---|
 | `filesystem` | id cartella (`root` = radice) | `{ items: [...] }`, ogni item è `folder` (id, name, color) o `activity` (metadati leggeri: id, name, activityType, templateKey, date, timerMinutes, timerSeconds, zones, difficulty). `agente_selezione` contiene solo copie di attività che vivono in altre cartelle. |
-| `activities` | `a_<timestamp>` | Documento completo per attività: campi specifici per tipo (`words`, `questions`, `images`, `labels`, `phrases`, `hiddenSolution`, ecc.) + `folderId`, `zones` (array tra `CTV`, `SN`, `AP`, `MS`, `TC`), `difficulty` (1–3) |
+| `activities` | `a_<timestamp>` | Documento completo per attività: campi specifici per tipo (`words`, `questions`, `images`, `labels`, `phrases`, `hiddenSolution`, ecc.) + `folderId`, `zones` (array tra `CTV`, `SN`, `AP`, `MS`, `TC`), `difficulty` (1–3). Trova l'Intruso può avere `commonQuestion: { options, correctIndex }`, la domanda facoltativa «Cosa hanno in comune le immagini?» posta dopo aver trovato le immagini giuste (`null` = nessuna domanda) |
 
 Editor, `folders.js` e `index.js` modificano le cartelle solo con transazioni Firestore (rileggono la cartella lato server prima di scrivere), così più persone possono salvare contemporaneamente senza cancellarsi gli inserimenti a vicenda. Fa eccezione solo il ripristino da backup in `index.html`, che sovrascrive tutto per definizione.
 | `sequences` | `seq_<timestamp>` | Sequenza di attività per sessioni di gruppo: `{ id, name, createdAt, steps: [{ id, activityType, activities: [ids], randomize }] }` |

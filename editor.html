@@ -35,6 +35,7 @@
         .btn-add { background: #000; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
         .intruso-label { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
         .intruso-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #9333ea; cursor: pointer; }
+        .ti-q-hint { font-size: 12px; color: #6b7280; margin: 0 0 10px; }
 
         /* Quiz (radiazione a catena) */
         .question-block { flex-direction: column; gap: 10px; }
@@ -483,6 +484,90 @@
         // In edit mode we populate rows from saved data instead of showing blank starters
         const initialRows = editId ? 0 : (isRadiazione ? 2 : (isTrovaIntruso ? 6 : (isPassaESpassa ? 1 : (isGuessWhat ? 3 : 3))));
         for (let i = 0; i < initialRows; i++) createItemRow();
+
+        // ── TROVA L'INTRUSO: closing question (optional) ──────────────────
+        // "Cosa hanno in comune le immagini?" with options written by whoever builds the
+        // game, exactly one of them right. Asked in game only when switched on here.
+        const tiQuestion = isTrovaIntruso ? (() => {
+            const MAX_OPTIONS = 8;
+            const panel = document.createElement('div');
+            panel.className = 'items-panel';
+            panel.style.marginTop = '20px';
+            panel.innerHTML = `
+                <h3>Domanda finale (facoltativa)</h3>
+                <label class="intruso-label" style="white-space:normal;">
+                    <input type="checkbox" id="tiQuestionOn">
+                    Dopo che lo studente ha trovato le immagini giuste, chiedi: «Cosa hanno in comune le immagini?»
+                </label>
+                <div id="tiQuestionBody" style="display:none;margin-top:14px;">
+                    <p class="ti-q-hint">Scrivi le opzioni e segna quella giusta (una sola). In gioco compaiono in ordine casuale.</p>
+                    <div class="qb-answers" id="tiOptions"></div>
+                    <button type="button" class="btn-add-answer" id="tiAddOption" style="margin-top:8px;">+ Aggiungi opzione</button>
+                </div>
+            `;
+            document.querySelector('.items-panel').after(panel);
+            const toggle = panel.querySelector('#tiQuestionOn');
+            const body   = panel.querySelector('#tiQuestionBody');
+            const list   = panel.querySelector('#tiOptions');
+            const addBtn = panel.querySelector('#tiAddOption');
+            const relabel = () => {
+                const optRows = list.querySelectorAll('.qa-row');
+                optRows.forEach((r, i) => {
+                    const letter = String.fromCharCode(65 + i);
+                    r.querySelector('.qa-label').textContent = letter;
+                    r.querySelector('.qa-input').placeholder = `Opzione ${letter}...`;
+                });
+                addBtn.style.display = optRows.length >= MAX_OPTIONS ? 'none' : '';
+            };
+            const addOption = (text = '', correct = false) => {
+                const row = document.createElement('div');
+                row.className = 'qa-row';
+                row.innerHTML = `
+                    <span class="qa-label"></span>
+                    <input type="text" class="qa-input">
+                    <label class="qa-correct-label"><input type="radio" name="tiCorrect" class="qa-correct"> Giusta</label>
+                    <button type="button" class="qa-remove" title="Rimuovi opzione">×</button>
+                `;
+                row.querySelector('.qa-input').value = text;
+                row.querySelector('.qa-correct').checked = correct;
+                row.querySelector('.qa-remove').addEventListener('click', () => {
+                    if (list.querySelectorAll('.qa-row').length > 2) { row.remove(); relabel(); }
+                });
+                list.appendChild(row);
+                relabel();
+            };
+            toggle.addEventListener('change', () => {
+                body.style.display = toggle.checked ? '' : 'none';
+                if (toggle.checked && !list.children.length) for (let i = 0; i < 3; i++) addOption();
+            });
+            addBtn.addEventListener('click', () => addOption());
+            return {
+                load(q) {
+                    if (!q || !Array.isArray(q.options) || q.options.length < 2) return;
+                    toggle.checked = true;
+                    body.style.display = '';
+                    q.options.forEach((text, i) => addOption(text, i === q.correctIndex));
+                },
+                // null when switched off, which also removes a question saved earlier;
+                // { error } when it is switched on but incomplete
+                read() {
+                    if (!toggle.checked) return null;
+                    const options = [];
+                    let correctIndex = -1;
+                    list.querySelectorAll('.qa-row').forEach(r => {
+                        const text = r.querySelector('.qa-input').value.trim();
+                        if (!text) return;
+                        if (r.querySelector('.qa-correct').checked) correctIndex = options.length;
+                        options.push(text);
+                    });
+                    if (options.length < 2) return { error: "Domanda finale: scrivi almeno 2 opzioni (oppure togli la spunta per non fare la domanda)." };
+                    if (correctIndex < 0)   return { error: "Domanda finale: segna quale opzione è quella giusta." };
+                    if (new Set(options.map(o => o.toLowerCase())).size !== options.length)
+                        return { error: "Domanda finale: ci sono due opzioni uguali." };
+                    return { options, correctIndex };
+                }
+            };
+        })() : null;
 
         if (isSeConosci) {
             // Add hidden solution field to settings panel
@@ -945,6 +1030,7 @@
                     const check = row.querySelector('.intruso-check');
                     if (check) check.checked = !!img.isIntruso;
                 });
+                tiQuestion.load(editData.commonQuestion);
 
             } else {
                 // crossword, hangman, se-conosci (words + optional images)
@@ -1105,6 +1191,9 @@
                     }
                     if (imagesArray.length < 2) { alert("Devi inserire almeno 2 immagini!"); return; }
                     newActivity.images = imagesArray;
+                    const commonQuestion = tiQuestion.read();
+                    if (commonQuestion && commonQuestion.error) { alert(commonQuestion.error); return; }
+                    newActivity.commonQuestion = commonQuestion;
 
                 } else {
                     let wordsArray = [];
@@ -1168,6 +1257,7 @@
                         ...(newActivity.labels     !== undefined && { labels:     newActivity.labels }),
                         ...(newActivity.phrases    !== undefined && { phrases:    newActivity.phrases }),
                         ...(newActivity.images     !== undefined && { images:     newActivity.images }),
+                        ...(newActivity.commonQuestion !== undefined && { commonQuestion: newActivity.commonQuestion }),
                         ...(newActivity.words      !== undefined && { words:      newActivity.words }),
                         ...(newActivity.hiddenSolution !== undefined && { hiddenSolution: newActivity.hiddenSolution }),
                         ...(newActivity.hiddenSolutionIsWord !== undefined && { hiddenSolutionIsWord: newActivity.hiddenSolutionIsWord })
