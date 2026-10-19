@@ -91,6 +91,12 @@ class Crossword {
                 <div class="cw-grid-wrapper" id="cwGridWrapper">
                     <div class="crossword-grid" id="cwGrid"></div>
                 </div>
+                <div class="cw-zoom-tools" id="cwZoomTools">
+                    <button type="button" data-gzoom="out" title="Riduci il cruciverba">−</button>
+                    <span id="cwZoomLevel">100%</span>
+                    <button type="button" data-gzoom="in" title="Ingrandisci il cruciverba">+</button>
+                    <button type="button" data-gzoom="fit" title="Mostra tutto il cruciverba">⤢</button>
+                </div>
                 <div class="cw-image-float" id="cwImageFloat"></div>
             </div>
         `;
@@ -99,24 +105,71 @@ class Crossword {
         const cwGridWrapper = document.getElementById('cwGridWrapper');
         const viewer        = createImageViewer(document.getElementById('cwImageFloat'), { floating: true });
 
-        // Cells are sized on the space the grid really has, and resized whenever it
-        // changes: the on-screen keyboard appears after this runs and takes room. If even
-        // the smallest cells don't fit, the black box scrolls instead of cutting the grid.
-        const calcCellSize = () => {
+        // ── Grid size and zoom ────────────────────────────────────────────
+        // At 100% the whole crossword fits the box (cells sized on the space it really
+        // has, recomputed whenever it changes: the on-screen keyboard appears after this
+        // runs). Zooming in makes cells bigger and the box scrolls; the cell being typed
+        // in is kept in view.
+        const fitCellSize = () => {
             const st = getComputedStyle(cwGridWrapper);
             const availW = cwGridWrapper.clientWidth  - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
             const availH = cwGridWrapper.clientHeight - parseFloat(st.paddingTop)  - parseFloat(st.paddingBottom);
             const byW = Math.floor((availW - (cols-1)*2) / cols);
             const byH = Math.floor((availH - (rows-1)*2) / rows);
-            return Math.max(15, Math.min(40, byW, byH));
+            return Math.max(8, Math.min(40, byW, byH));
         };
         const applyGridSize = cs => {
             cwGrid.style.setProperty('--cw-cell-size', cs + 'px');
             cwGrid.style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
             cwGrid.style.gridTemplateRows    = `repeat(${rows}, ${cs}px)`;
         };
-        applyGridSize(calcCellSize());
-        new ResizeObserver(() => applyGridSize(calcCellSize())).observe(cwGridWrapper);
+        const ZOOM_MAX = 5;
+        let gridZoom = 1;
+        const cwZoomLevel = document.getElementById('cwZoomLevel');
+        const applyZoom = () => {
+            applyGridSize(Math.round(fitCellSize() * gridZoom));
+            cwZoomLevel.textContent = Math.round(gridZoom * 100) + '%';
+        };
+        const setGridZoom = z => {
+            gridZoom = Math.max(1, Math.min(ZOOM_MAX, z));
+            applyZoom();
+            const cell = activeKey && keyToCell[activeKey];
+            if (cell && gridZoom > 1) cell.scrollIntoView({ block: 'center', inline: 'center' });
+        };
+        applyZoom();
+        new ResizeObserver(applyZoom).observe(cwGridWrapper);
+
+        const cwZoomTools = document.getElementById('cwZoomTools');
+        cwZoomTools.addEventListener('pointerdown', e => e.preventDefault()); // keep the focus on the cell
+        cwZoomTools.addEventListener('click', e => {
+            const a = e.target.closest('[data-gzoom]')?.dataset.gzoom;
+            if (a === 'in')  setGridZoom(gridZoom * 1.25);
+            if (a === 'out') setGridZoom(gridZoom / 1.25);
+            if (a === 'fit') setGridZoom(1);
+        });
+        // Ctrl + wheel (and trackpad pinch, which browsers report the same way)
+        cwGridWrapper.addEventListener('wheel', e => {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            setGridZoom(gridZoom * Math.exp(-e.deltaY * 0.0025)); // ~+28% per wheel notch
+        }, { passive: false });
+        // two-finger pinch on touchscreens (one finger still scrolls and taps cells)
+        const touchPts = new Map();
+        let pinch = null;
+        const pinchDist = () => { const [a, b] = [...touchPts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+        cwGridWrapper.addEventListener('pointerdown', e => {
+            if (e.pointerType !== 'touch') return;
+            touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (touchPts.size === 2) pinch = { dist: pinchDist(), zoom: gridZoom };
+        });
+        cwGridWrapper.addEventListener('pointermove', e => {
+            if (!touchPts.has(e.pointerId)) return;
+            touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pinch && touchPts.size === 2) setGridZoom(pinch.zoom * pinchDist() / pinch.dist);
+        });
+        const endTouch = e => { touchPts.delete(e.pointerId); if (touchPts.size < 2) pinch = null; };
+        cwGridWrapper.addEventListener('pointerup', endTouch);
+        cwGridWrapper.addEventListener('pointercancel', endTouch);
 
         // ── Maps ──────────────────────────────────────────────────────────
         const keyToCell  = {};
