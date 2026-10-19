@@ -36,6 +36,10 @@
         .hm-char-letter { font-size: 26px; font-weight: bold; line-height: 1; min-height: 32px; display: flex; align-items: flex-end; }
         .hm-char-line { width: 26px; height: 3px; background: #333; }
         .hm-word-space { width: 18px; }
+        .hm-char-letter.hm-char-missed { color: #dc2626; }
+        .hm-next { display: none; flex-direction: column; align-items: center; gap: 10px; }
+        .hm-next-msg { font-size: 16px; font-weight: 600; color: #b91c1c; text-align: center; }
+        .hm-next-btn { background: #7c3aed; color: white; border: none; border-radius: 8px; padding: 10px 26px; font-size: 15px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; }
         .hm-clue-image { max-width: 320px; max-height: 220px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); object-fit: contain; }
         .hm-keyboard { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 390px; }
         .key { padding: 6px 10px; font-size: 13px; font-weight: bold; background: white; border: 1.5px solid #ddd; border-radius: 5px; cursor: pointer; min-width: 30px; text-align: center; transition: background 0.1s; }
@@ -519,6 +523,18 @@
             let guessedLetters = [];
             let mistakes = 0;
             const maxMistakes = 6;
+            // A lost word no longer ends the game: it is revealed and play moves on to the
+            // next one. Only after the last word does the final result (with Rigioca) appear.
+            // The keyboard only has A-Z: accented letters are guessed through their base
+            // letter (E reveals È) and any other character (apostrophe, hyphen, digit…)
+            // is shown from the start, otherwise words like "DELL'ANO" could never be solved.
+            const baseLetter = c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const isGuessable = c => /^[A-Z]$/.test(baseLetter(c));
+            let baseWord = '';
+            let guessedCount = 0;
+            let wordDone = false;   // current word solved or lost: ignore further guesses
+            let wordLost = false;
+            let advanceTimer = null;
 
             container.innerHTML = `
                 <div class="hangman-layout">
@@ -541,6 +557,10 @@
                     </div>
                     <div class="hm-right">
                         <div class="hm-word-area" id="hmWord"></div>
+                        <div class="hm-next" id="hmNext">
+                            <div class="hm-next-msg" id="hmNextMsg"></div>
+                            <button type="button" class="hm-next-btn" id="hmNextBtn">Prossima parola →</button>
+                        </div>
                         <img id="hmImage" class="hm-clue-image" src="" alt="Indizio" style="display:none;">
                         <div id="hmKeyboard" class="hm-keyboard"></div>
                     </div>
@@ -548,6 +568,9 @@
             `;
 
             const hmWord       = document.getElementById('hmWord');
+            const hmNext       = document.getElementById('hmNext');
+            const hmNextMsg    = document.getElementById('hmNextMsg');
+            const hmNextBtn    = document.getElementById('hmNextBtn');
             const hmKeyboard   = document.getElementById('hmKeyboard');
             const hmImage      = document.getElementById('hmImage');
             const hmWrongLetters = document.getElementById('hmWrongLetters');
@@ -559,7 +582,7 @@
 
             function updateWrongLetters() {
                 hmWrongLetters.innerHTML = '';
-                guessedLetters.filter(l => !currentWord.includes(l)).forEach(l => {
+                guessedLetters.filter(l => !baseWord.includes(l)).forEach(l => {
                     const chip = document.createElement('span');
                     chip.className = 'hm-letter-chip';
                     chip.textContent = l;
@@ -571,7 +594,7 @@
                 hmWord.innerHTML = '';
                 let allRevealed = true;
                 for (const char of currentWord) {
-                    if (char === ' ') {
+                    if (char === ' ' || char === '_') {  // some imported words use _ between words
                         const sp = document.createElement('span');
                         sp.className = 'hm-word-space';
                         hmWord.appendChild(sp);
@@ -580,10 +603,14 @@
                         box.className = 'hm-char-box';
                         const letter = document.createElement('span');
                         letter.className = 'hm-char-letter';
-                        if (guessedLetters.includes(char)) {
+                        if (!isGuessable(char) || guessedLetters.includes(baseLetter(char))) {
                             letter.textContent = char;
                         } else {
                             allRevealed = false;
+                            if (wordLost) {
+                                letter.textContent = char;
+                                letter.classList.add('hm-char-missed');
+                            }
                         }
                         const line = document.createElement('div');
                         line.className = 'hm-char-line';
@@ -592,36 +619,56 @@
                         hmWord.appendChild(box);
                     }
                 }
-                if (allRevealed && !solutionShown) {
-                    setTimeout(() => {
-                        currentWordIndex++;
-                        if (currentWordIndex >= words.length) endGame(true, "Hai indovinato tutte le parole!");
-                        else loadWord();
-                    }, 800);
+                if (allRevealed && !solutionShown && !wordDone) {
+                    wordDone = true;
+                    guessedCount++;
+                    advanceTimer = setTimeout(nextWordOrFinish, 800);
                 }
             }
+
+            function nextWordOrFinish() {
+                clearTimeout(advanceTimer);
+                if (solutionShown) return;
+                const isLast = currentWordIndex >= words.length - 1;
+                if (!isLast) { currentWordIndex++; loadWord(); return; }
+                const n = words.length;
+                if (guessedCount === n) {
+                    endGame(true, n > 1 ? "Hai indovinato tutte le parole!" : "Hai indovinato la parola!");
+                } else {
+                    endGame(false, n > 1 ? `Hai indovinato ${guessedCount} ${guessedCount === 1 ? 'parola' : 'parole'} su ${n}.` : `La parola era: ${currentWord}`);
+                }
+            }
+
+            function onWordLost() {
+                wordDone = true;
+                wordLost = true;
+                renderWord();
+                const isLast = currentWordIndex >= words.length - 1;
+                hmNextMsg.textContent = `La parola era: ${currentWord}`;
+                hmNextBtn.textContent = isLast ? 'Vedi il risultato' : 'Prossima parola →';
+                hmNext.style.display = 'flex';
+            }
+            hmNextBtn.addEventListener('click', nextWordOrFinish);
 
             function drawHangman() {
                 for (let i = 1; i <= 6; i++) {
                     const el = document.querySelector(`.hm-p${i}`);
                     if (el) el.style.display = mistakes >= i ? 'block' : 'none';
                 }
-                if (mistakes >= maxMistakes) {
-                    endGame(false, `La parola era: ${currentWord}`);
-                }
+                if (mistakes >= maxMistakes) onWordLost();
             }
 
             function handleGuess(letter, btnEl) {
                 if (document.getElementById('resultOverlay').style.display === 'flex') return;
-                if (guessedLetters.includes(letter) || mistakes >= maxMistakes) return;
+                if (wordDone || guessedLetters.includes(letter) || mistakes >= maxMistakes) return;
 
                 guessedLetters.push(letter);
                 if (btnEl) {
                     btnEl.classList.add('disabled');
-                    btnEl.classList.add(currentWord.includes(letter) ? 'correct' : 'wrong');
+                    btnEl.classList.add(baseWord.includes(letter) ? 'correct' : 'wrong');
                 }
 
-                if (currentWord.includes(letter)) {
+                if (baseWord.includes(letter)) {
                     renderWord();
                 } else {
                     mistakes++;
@@ -644,8 +691,12 @@
 
             function loadWord() {
                 currentWord = words[currentWordIndex].word.toUpperCase().trim();
+                baseWord = baseLetter(currentWord);
                 guessedLetters = [];
                 mistakes = 0;
+                wordDone = false;
+                wordLost = false;
+                hmNext.style.display = 'none';
 
                 const img = words[currentWordIndex].image;
                 if (img && img !== 'null') { hmImage.src = img; hmImage.style.display = 'block'; }
@@ -675,10 +726,10 @@
             }
 
             solutionFn = () => {
-                guessedLetters = [...new Set([...currentWord].filter(c => c !== ' '))];
+                guessedLetters = [...new Set([...currentWord].filter(isGuessable).map(baseLetter))];
                 renderWord();
                 document.querySelectorAll('#hmKeyboard .key').forEach(btn => {
-                    if (currentWord.includes(btn.dataset.letter))
+                    if (baseWord.includes(btn.dataset.letter))
                         btn.classList.add('disabled', 'correct');
                 });
             };
