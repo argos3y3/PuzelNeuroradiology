@@ -100,18 +100,12 @@ class Crossword {
                 <div class="cw-grid-wrapper">
                     <div class="crossword-grid" id="cwGrid"></div>
                 </div>
-                <div class="crossword-clues" id="cwClues"></div>
-                <div class="cw-zoom-popup" id="cwZoomPopup">
-                    <button class="cw-zoom-close" id="cwZoomClose">×</button>
-                    <img class="cw-zoom-img" id="cwZoomImg" src="" alt="">
-                </div>
+                <div class="cw-image-panel" id="cwImagePanel"></div>
             </div>
         `;
 
         const cwGrid      = document.getElementById('cwGrid');
-        const cwClues     = document.getElementById('cwClues');
-        const cwZoomPopup = document.getElementById('cwZoomPopup');
-        const cwZoomImg   = document.getElementById('cwZoomImg');
+        const viewer      = createImageViewer(document.getElementById('cwImagePanel'));
 
         const applyGridSize = cs => {
             cwGrid.style.setProperty('--cw-cell-size', cs + 'px');
@@ -150,7 +144,6 @@ class Crossword {
         // ── State ─────────────────────────────────────────────────────────
         let activeKey      = null;
         let activeDir      = 'H';
-        let activeWordIdx  = null;   // clue panel selection
         const correctWords  = new Set();
         // key → original correct value: celle temporaneamente sbloccate per
         // permettere la scrittura dell'altra direzione
@@ -216,20 +209,15 @@ class Crossword {
             syncZoom(entry ? entry.wp.originalIndex : null);
         };
 
-        // ── Zoom follows the selected word ────────────────────────────────
-        // Selecting a word in the grid enlarges its image, as the 🔍 button does;
-        // moving to another word swaps the image (or hides it if that word has none).
-        // Unless forced, the same word doesn't reopen a popup the player closed.
-        let zoomedWordIdx = null;
-        const syncZoom = (idx, force) => {
-            if (idx == null || (!force && idx === zoomedWordIdx)) return;
-            zoomedWordIdx = idx;
-            activeWordIdx = idx;
-            cwClues.querySelectorAll('.clue-item.active').forEach(c => c.classList.remove('active'));
-            cwClues.querySelector(`.clue-item[data-word-index="${idx}"]`)?.classList.add('active');
+        // ── The image box follows the selected word ───────────────────────
+        // Moving to another word shows its picture (fitted to the box); staying on the
+        // same word keeps whatever zoom the player chose.
+        let shownWordIdx = null;
+        const syncZoom = idx => {
+            if (idx == null || idx === shownWordIdx) return;
+            shownWordIdx = idx;
             const wp = wordPlacements.find(w => w.originalIndex === idx);
-            if (wp && wp.image && wp.image !== 'null') showZoom(wp.image);
-            else hideZoom();
+            viewer.show(wp && wp.image, `${idx} ${wp && dirOf(wp) === 'V' ? '↓' : '→'}`);
         };
 
         // ── Temporary unlock helpers ──────────────────────────────────────
@@ -339,7 +327,7 @@ class Crossword {
                     highlightWord(entry ? entry.wp.originalIndex : null);
                 }
                 const entry = getEntry(key, activeDir);
-                syncZoom(entry ? entry.wp.originalIndex : null, true);
+                syncZoom(entry ? entry.wp.originalIndex : null);
             });
 
             input.addEventListener('focus', () => {
@@ -421,93 +409,8 @@ class Crossword {
             cwGrid.appendChild(cell);
         });
 
-        // ── Draggable zoom popup ──────────────────────────────────────────
-        {
-            let dx = 0, dy = 0, ox = 0, oy = 0, dragging = false;
-            cwZoomPopup.addEventListener('pointerdown', e => {
-                if (e.target.closest('.cw-zoom-close')) return;
-                dragging = true;
-                dx = e.clientX; dy = e.clientY;
-                const r = cwZoomPopup.getBoundingClientRect();
-                ox = r.left; oy = r.top;
-                cwZoomPopup.setPointerCapture(e.pointerId);
-                e.preventDefault();
-            });
-            cwZoomPopup.addEventListener('pointermove', e => {
-                if (!dragging) return;
-                cwZoomPopup.style.left      = ox + e.clientX - dx + 'px';
-                cwZoomPopup.style.top       = oy + e.clientY - dy + 'px';
-                cwZoomPopup.style.right     = 'auto';
-                cwZoomPopup.style.transform = 'none';
-            });
-            cwZoomPopup.addEventListener('pointerup',     () => { dragging = false; });
-            cwZoomPopup.addEventListener('pointercancel', () => { dragging = false; });
-        }
-
-        const showZoom = src => {
-            if (!src || src === 'null') return;
-            cwZoomImg.src = src;
-            cwZoomPopup.style.display = 'block';
-        };
-        const hideZoom = () => { cwZoomPopup.style.display = 'none'; };
-
-        document.getElementById('cwZoomClose').addEventListener('click', e => {
-            e.stopPropagation();
-            hideZoom();
-            activeWordIdx = null;
-            highlightWord(null);
-            cwClues.querySelectorAll('.clue-item.active').forEach(c => c.classList.remove('active'));
-        });
-
-        // ── Clue panel ────────────────────────────────────────────────────
-        wordPlacements.sort((a, b) => a.originalIndex - b.originalIndex).forEach(w => {
-            const clue = document.createElement('div');
-            clue.className         = 'clue-item';
-            clue.dataset.wordIndex = w.originalIndex;
-
-            const numSpan = document.createElement('span');
-            numSpan.className   = 'clue-number';
-            numSpan.textContent = w.originalIndex;
-            clue.appendChild(numSpan);
-
-            if (w.image && w.image !== 'null') {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'clue-img-wrapper';
-                const img = document.createElement('img');
-                img.src = w.image; img.alt = 'indizio';
-                wrapper.appendChild(img);
-                const zBtn = document.createElement('button');
-                zBtn.type = 'button'; zBtn.className = 'clue-zoom-btn'; zBtn.textContent = '🔍';
-                zBtn.addEventListener('click', e => { e.stopPropagation(); showZoom(w.image); });
-                wrapper.appendChild(zBtn);
-                clue.appendChild(wrapper);
-            } else {
-                const noImg = document.createElement('span');
-                noImg.className = 'clue-no-image'; noImg.textContent = '(nessuna immagine)';
-                clue.appendChild(noImg);
-            }
-
-            clue.addEventListener('mouseenter', () => highlightWord(w.originalIndex));
-            clue.addEventListener('mouseleave', () => highlightWord(activeWordIdx));
-            clue.addEventListener('click', () => {
-                cwClues.querySelectorAll('.clue-item.active').forEach(c => c.classList.remove('active'));
-                if (activeWordIdx === w.originalIndex) {
-                    activeWordIdx = null; highlightWord(null); hideZoom();
-                } else {
-                    activeWordIdx = w.originalIndex;
-                    clue.classList.add('active');
-                    highlightWord(w.originalIndex);
-                    if (w.image && w.image !== 'null') showZoom(w.image);
-                    const firstKey = `${w.x},${w.y}`;
-                    if (keyToInput[firstKey]) {
-                        setActive(firstKey, dirOf(w));
-                        setTimeout(() => keyToInput[firstKey].focus(), 50);
-                    }
-                }
-            });
-
-            cwClues.appendChild(clue);
-        });
+        // Word 1 is the one selected at start
+        wordPlacements.sort((a, b) => a.originalIndex - b.originalIndex);
 
         // Initial focus
         setTimeout(() => {

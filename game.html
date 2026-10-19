@@ -84,7 +84,20 @@
         .cw-zoom-close { position: absolute; top: 8px; right: 8px; background: #7c3aed; color: white; border: none; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 0; }
 
         /* Pannello indizi */
-        .crossword-clues { flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; overflow-y: auto; max-height: 100%; }
+        .cw-image-panel { flex: 1; min-width: 0; display: flex; }
+
+        /* Image box with zoom (image-viewer.js). No 'inset': Chromium 85 doesn't support it */
+        .img-viewer { display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; background: #f9f9f9; border-radius: 8px; padding: 12px; box-sizing: border-box; }
+        .img-viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .img-viewer-label { font-weight: 700; font-size: 20px; color: #222; }
+        .img-viewer-tools { display: flex; align-items: center; gap: 6px; }
+        .img-viewer-tools button { width: 40px; height: 40px; padding: 0; border-radius: 8px; border: 1.5px solid #d1d5db; background: white; color: #374151; font-size: 20px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+        .img-viewer-tools button:active { background: #f3e8ff; }
+        .img-viewer-level { min-width: 48px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7280; }
+        .img-viewer-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: black; border-radius: 8px; touch-action: none; cursor: zoom-in; }
+        .img-viewer-stage.zoomed { cursor: grab; }
+        .img-viewer-stage img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center center; user-select: none; pointer-events: none; -webkit-user-drag: none; }
+        .img-viewer-empty { position: absolute; top: 0; left: 0; right: 0; bottom: 0; margin: 0; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-style: italic; font-size: 14px; }
         .clue-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); cursor: pointer; transition: background 0.15s; }
         .clue-item:hover { background: #f3e8ff; }
         .clue-item.active { background: #7c3aed; }
@@ -107,7 +120,7 @@
         .rac-q-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; display: block; cursor: default; }
         .rac-zoom-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.55); color: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
         .rac-zoom-btn:hover { background: rgba(0,0,0,0.8); }
-        .rac-zoom-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
+        .rac-zoom-popup { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
         .rac-zoom-close { position: absolute; top: 18px; right: 22px; background: none; border: none; color: white; font-size: 36px; line-height: 1; cursor: pointer; opacity: 0.8; }
         .rac-zoom-close:hover { opacity: 1; }
         .rac-zoom-img { max-width: 90vw; max-height: 88vh; object-fit: contain; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
@@ -137,9 +150,10 @@
         .ti-img-card:hover { box-shadow: 0 0 0 2px #d8b4fe; }
         .ti-img-card.selected { border-color: #9333ea; }
         .ti-img-card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+        @supports not (aspect-ratio: 4/3) { .ti-img-card img { height: 22vh; } }  /* Chromium 85 (Tizen) */
         .ti-zoom-btn { position: absolute; top: 7px; right: 7px; background: rgba(0,0,0,0.52); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; z-index: 1; }
         .ti-zoom-btn:hover { background: rgba(0,0,0,0.82); }
-        .ti-zoom-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
+        .ti-zoom-popup { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.88); justify-content: center; align-items: center; z-index: 3000; }
         .ti-zoom-close { position: absolute; top: 18px; right: 22px; background: none; border: none; color: white; font-size: 36px; line-height: 1; cursor: pointer; opacity: 0.8; }
         .ti-zoom-close:hover { opacity: 1; }
         .ti-zoom-img { max-width: 90vw; max-height: 88vh; object-fit: contain; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
@@ -180,7 +194,7 @@
         .gw-image-area { flex: 1.4; display: flex; align-items: center; justify-content: center; height: 100%; overflow: hidden; }
         .gw-img-wrapper { position: relative; display: inline-block; max-height: 100%; }
         .gw-image { display: block; max-width: 100%; max-height: calc(100vh - 160px); border-radius: 10px; object-fit: contain; }
-        .gw-line-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; overflow: visible; }
+        .gw-line-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; overflow: visible; }
         .gw-answers { flex: 1; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 4px 2px 4px 0; height: 100%; }
         .gw-input-row { display: flex; align-items: center; gap: 12px; }
         .gw-input-num { width: 28px; height: 28px; background: #7c3aed; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
@@ -277,6 +291,7 @@
         <div class="osk-row" id="oskRow4"></div>
     </div>
 
+    <script src="image-viewer.js"></script>
     <script src="crossword.js"></script>
     <script src="trova-intruso.js"></script>
     <script src="radiazione-a-catena.js"></script>
