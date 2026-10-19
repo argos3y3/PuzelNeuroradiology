@@ -1,9 +1,12 @@
 // Image box with variable zoom, used by the grid games to show the picture of the
 // selected word. Zoom with the +/− buttons, the mouse wheel, a two-finger pinch or a
-// double tap; when zoomed in, drag to move around. Plain ES2020 so it also runs on
-// the Samsung Tizen browsers (Chromium 85).
-function createImageViewer(host) {
+// double tap; when zoomed in, drag to move around. With { floating: true } it is a
+// window that can be dragged by its title bar, resized from its corner and closed;
+// it reopens on the next show(). Plain ES2020 so it also runs on the Samsung Tizen
+// browsers (Chromium 85).
+function createImageViewer(host, opts = {}) {
     host.classList.add('img-viewer');
+    if (opts.floating) host.classList.add('img-viewer-floating');
     host.innerHTML = `
         <div class="img-viewer-head">
             <span class="img-viewer-label"></span>
@@ -12,6 +15,7 @@ function createImageViewer(host) {
                 <span class="img-viewer-level">100%</span>
                 <button type="button" data-zoom="in" title="Ingrandisci">+</button>
                 <button type="button" data-zoom="fit" title="Adatta alla casella">⤢</button>
+                ${opts.floating ? '<button type="button" data-zoom="close" title="Chiudi">×</button>' : ''}
             </div>
         </div>
         <div class="img-viewer-stage">
@@ -59,6 +63,7 @@ function createImageViewer(host) {
         if (action === 'in')  zoomTo(scale * 1.4);
         if (action === 'out') zoomTo(scale / 1.4);
         if (action === 'fit') fit();
+        if (action === 'close') host.style.display = 'none';
     });
     // buttons must not steal the focus from the grid cell being typed in
     host.querySelector('.img-viewer-tools').addEventListener('pointerdown', e => e.preventDefault());
@@ -111,9 +116,35 @@ function createImageViewer(host) {
     stage.addEventListener('pointercancel', release);
     window.addEventListener('resize', apply);
 
+    // floating window: drag it by the title bar, kept inside the screen
+    if (opts.floating) {
+        const head = host.querySelector('.img-viewer-head');
+        let drag = null;
+        head.addEventListener('pointerdown', e => {
+            if (e.target.closest('button')) return;
+            e.preventDefault();
+            try { head.setPointerCapture(e.pointerId); } catch (_) {}
+            const r = host.getBoundingClientRect();
+            drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top };
+        });
+        head.addEventListener('pointermove', e => {
+            if (!drag || e.pointerId !== drag.id) return;
+            const maxX = window.innerWidth - host.offsetWidth, maxY = window.innerHeight - host.offsetHeight;
+            host.style.left  = Math.max(0, Math.min(maxX, e.clientX - drag.dx)) + 'px';
+            host.style.top   = Math.max(0, Math.min(maxY, e.clientY - drag.dy)) + 'px';
+            host.style.right = 'auto';
+        });
+        const endDrag = () => { drag = null; };
+        head.addEventListener('pointerup', endDrag);
+        head.addEventListener('pointercancel', endDrag);
+        // resizing (CSS resize on the window) changes the stage size: re-clamp the pan
+        if (window.ResizeObserver) new ResizeObserver(apply).observe(stage);
+    }
+
     return {
         // a new picture always starts fitted to the box
         show(src, text) {
+            host.style.display = '';
             label.textContent = text || '';
             if (!src || src === 'null') {
                 currentSrc = null;

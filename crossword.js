@@ -84,36 +84,39 @@ class Crossword {
         });
         const cols = maxX - minX + 1, rows = maxY - minY + 1;
 
-        const calcCellSize = () => {
-            const pW = this.container.clientWidth, pH = this.container.clientHeight;
-            const layoutW = Math.min(pW, 1200);
-            const gridAvailW = Math.floor((layoutW - 20) * 2 / 3) - 44;
-            const gridAvailH = pH - 44;
-            const byW = Math.floor((gridAvailW - (cols-1)*2) / cols);
-            const byH = Math.floor((gridAvailH - (rows-1)*2) / rows);
-            return Math.max(15, Math.min(34, byW, byH));
-        };
-
         // ── DOM ───────────────────────────────────────────────────────────
+        // The grid takes the whole width; the word's picture is a floating window.
         this.container.innerHTML = `
             <div class="crossword-layout">
-                <div class="cw-grid-wrapper">
+                <div class="cw-grid-wrapper" id="cwGridWrapper">
                     <div class="crossword-grid" id="cwGrid"></div>
                 </div>
-                <div class="cw-image-panel" id="cwImagePanel"></div>
+                <div class="cw-image-float" id="cwImageFloat"></div>
             </div>
         `;
 
-        const cwGrid      = document.getElementById('cwGrid');
-        const viewer      = createImageViewer(document.getElementById('cwImagePanel'));
+        const cwGrid        = document.getElementById('cwGrid');
+        const cwGridWrapper = document.getElementById('cwGridWrapper');
+        const viewer        = createImageViewer(document.getElementById('cwImageFloat'), { floating: true });
 
+        // Cells are sized on the space the grid really has, and resized whenever it
+        // changes: the on-screen keyboard appears after this runs and takes room. If even
+        // the smallest cells don't fit, the black box scrolls instead of cutting the grid.
+        const calcCellSize = () => {
+            const st = getComputedStyle(cwGridWrapper);
+            const availW = cwGridWrapper.clientWidth  - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+            const availH = cwGridWrapper.clientHeight - parseFloat(st.paddingTop)  - parseFloat(st.paddingBottom);
+            const byW = Math.floor((availW - (cols-1)*2) / cols);
+            const byH = Math.floor((availH - (rows-1)*2) / rows);
+            return Math.max(15, Math.min(40, byW, byH));
+        };
         const applyGridSize = cs => {
             cwGrid.style.setProperty('--cw-cell-size', cs + 'px');
             cwGrid.style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
             cwGrid.style.gridTemplateRows    = `repeat(${rows}, ${cs}px)`;
         };
         applyGridSize(calcCellSize());
-        window.addEventListener('resize', () => applyGridSize(calcCellSize()));
+        new ResizeObserver(() => applyGridSize(calcCellSize())).observe(cwGridWrapper);
 
         // ── Maps ──────────────────────────────────────────────────────────
         const keyToCell  = {};
