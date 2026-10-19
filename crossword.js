@@ -249,9 +249,14 @@ class Crossword {
             } else if (words.length === 1) {
                 activeDir = dirOf(words[0].wp);
             } else {
-                // Intersezione: preferisci la direzione con parola non ancora corretta
+                // Intersezione. Se qui inizia una sola parola ancora da risolvere (la casella
+                // col numero), selezionare questa casella vuol dire scegliere quella parola.
+                const startingHere = words.filter(e => e.letterIdx === 0 && !correctWords.has(e.wp.originalIndex));
+                // Altrimenti preferisci la direzione con parola non ancora corretta
                 const currentDirEntry = words.find(e => dirOf(e.wp) === activeDir);
-                if (currentDirEntry && !correctWords.has(currentDirEntry.wp.originalIndex)) {
+                if (startingHere.length === 1) {
+                    activeDir = dirOf(startingHere[0].wp);
+                } else if (currentDirEntry && !correctWords.has(currentDirEntry.wp.originalIndex)) {
                     // La direzione attuale è ancora valida (parola non corretta) → tienila
                 } else {
                     const nonCorrect = words.find(e => !correctWords.has(e.wp.originalIndex));
