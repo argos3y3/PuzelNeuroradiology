@@ -84,5 +84,5 @@ backup_*.json
 __pycache__/
 outputs/codici_puzzel.txt
 
-# Appunti personali
-documenti/osservazioni*.rtf
+# Documenti e appunti: restano solo in locale
+documenti/

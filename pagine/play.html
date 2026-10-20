@@ -16,7 +16,7 @@
     <div class="msg" id="msg">Caricamento esercizio…</div>
 
     <script type="module">
-        import { db } from './script/comune/firebase-init.js';
+        import { db } from '/script/comune/firebase-init.js';
         import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
         // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
         (async () => {
@@ -43,7 +43,7 @@
 
         let catalogo;
         try {
-            catalogo = await (await fetch('catalogo.json', { cache: 'no-cache' })).json();
+            catalogo = await (await fetch('/catalogo.json', { cache: 'no-cache' })).json();
         } catch (err) {
             console.error(err);
             fail('load-error', 'Errore nel caricamento degli esercizi. Riprova tra poco.');

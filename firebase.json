@@ -23,13 +23,78 @@
       {
         "source": "catalogo.json",
         "headers": [
-          { "key": "Access-Control-Allow-Origin", "value": "*" },
-          { "key": "Cache-Control", "value": "no-cache" }
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
         ]
       },
       {
         "source": "**/*.@(html|js|css)",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/",
+        "destination": "/pagine/index.html"
+      },
+      {
+        "source": "/diag.html",
+        "destination": "/pagine/diag.html"
+      },
+      {
+        "source": "/editor.html",
+        "destination": "/pagine/editor.html"
+      },
+      {
+        "source": "/folders.html",
+        "destination": "/pagine/folders.html"
+      },
+      {
+        "source": "/game.html",
+        "destination": "/pagine/game.html"
+      },
+      {
+        "source": "/home.html",
+        "destination": "/pagine/home.html"
+      },
+      {
+        "source": "/index.html",
+        "destination": "/pagine/index.html"
+      },
+      {
+        "source": "/lobby.html",
+        "destination": "/pagine/lobby.html"
+      },
+      {
+        "source": "/login.html",
+        "destination": "/pagine/login.html"
+      },
+      {
+        "source": "/play.html",
+        "destination": "/pagine/play.html"
+      },
+      {
+        "source": "/sequence-editor.html",
+        "destination": "/pagine/sequence-editor.html"
+      },
+      {
+        "source": "/session.html",
+        "destination": "/pagine/session.html"
+      },
+      {
+        "source": "/stats.html",
+        "destination": "/pagine/stats.html"
       }
     ]
   }

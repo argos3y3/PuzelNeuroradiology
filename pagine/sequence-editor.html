@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor Sequenza — Puzel</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/pagine/style.css">
     <style>@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');</style>
     <script>
         (function() {
@@ -254,7 +254,7 @@
 </div>
 
 <script type="module">
-import { db } from './script/comune/firebase-init.js';
+import { db } from '/script/comune/firebase-init.js';
 import { collection, doc, getDocs, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
 // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
 (async () => {

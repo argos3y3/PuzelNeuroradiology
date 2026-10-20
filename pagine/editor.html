@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity Editor</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/pagine/style.css">
     <script>
         (function() {
             var auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
@@ -150,7 +150,7 @@
     </div>
 
     <script type="module">
-        import { db } from './script/comune/firebase-init.js';
+        import { db } from '/script/comune/firebase-init.js';
         import { collection, doc, getDoc, getDocs, setDoc, runTransaction } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
         // No top-level await: Samsung Tizen browsers (Chromium 85) reject it and the whole module fails to load
         (async () => {
