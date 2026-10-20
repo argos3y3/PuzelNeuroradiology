@@ -60,7 +60,7 @@
             loader('data:text/javascript,await 0;export default 1').then(function () { tla(true); }, function () { tla(false); });
 
             var timer = setTimeout(function () { fsRow(false, 'nessuna risposta in 15 s'); }, 15000);
-            Promise.all([loader(location.origin + '/firebase-init.js'),
+            Promise.all([loader(location.origin + '/script/comune/firebase-init.js'),
                          loader('https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js')])
                 .then(function (m) { return m[1].getDoc(m[1].doc(m[0].db, 'filesystem', 'root')); })
                 .then(function (snap) {

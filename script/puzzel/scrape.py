@@ -5,11 +5,11 @@ scrape.py — Scarica tutte le immagini dalle activity di puzzel.org.
 Non richiede un browser: usa direttamente la Firebase REST API.
 
 Uso:
-    conda run -n mps python scrape.py --email EMAIL --password PASSWORD
-    conda run -n mps python scrape.py --email EMAIL --password PASSWORD --out-dir ./mia_cartella
+    conda run -n mps python script/puzzel/scrape.py --email EMAIL --password PASSWORD
+    conda run -n mps python script/puzzel/scrape.py --email EMAIL --password PASSWORD --out-dir ./mia_cartella
 
 Output:
-    ./img/immagini_recuperate/
+    outputs/immagini_recuperate/
         NomeAttività1/
             NomeImmagine1.jpg
             NomeImmagine2.png
@@ -26,6 +26,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+
+# Downloads go to the project folder "outputs", whatever folder the script is run from
+OUTPUTS = Path(__file__).resolve().parents[2] / "outputs"
 
 # ---- Costanti Firebase -------------------------------------------------------
 _API_KEY  = "AIzaSyB4baX91pptGUS6A9H_IzRcYMmnfPlMAt0"
@@ -137,8 +140,8 @@ def parse_args():
     )
     p.add_argument("--email",    required=True, help="Email account puzzel.org")
     p.add_argument("--password", required=True, help="Password account puzzel.org")
-    p.add_argument("--out-dir",  default="./img/immagini_recuperate",
-                   help="Cartella di output (default: ./img/immagini_recuperate)")
+    p.add_argument("--out-dir",  default=str(OUTPUTS / "immagini_recuperate"),
+                   help="Cartella di output (default: outputs/immagini_recuperate)")
     p.add_argument("--delay", type=float, default=0.1,
                    help="Secondi di pausa tra una richiesta e l'altra (default: 0.1)")
     return p.parse_args()

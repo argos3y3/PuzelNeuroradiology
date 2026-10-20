@@ -8,11 +8,11 @@ Tipi gestiti (filtrati per prefisso del nome):
   PSP*  → Passa e Spassa       → passa_e_spassa/
   GW*   → Guess What           → guess_what/
 
-Output: img/nuove_immagini_recuperate/<tipo>/<NomeAttività>/
+Output: outputs/nuove_immagini_recuperate/<tipo>/<NomeAttività>/
 
 Uso:
-    python scrape_nuovi.py --email EMAIL --password PASSWORD
-    python scrape_nuovi.py --email EMAIL --password PASSWORD --explore
+    python script/puzzel/scrape_nuovi.py --email EMAIL --password PASSWORD
+    python script/puzzel/scrape_nuovi.py --email EMAIL --password PASSWORD --explore
 """
 
 import argparse
@@ -24,6 +24,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+
+# Downloads go to the project folder "outputs", whatever folder the script is run from
+OUTPUTS = Path(__file__).resolve().parents[2] / "outputs"
 
 # ── Costanti Firebase ─────────────────────────────────────────────────────────
 _API_KEY  = "AIzaSyB4baX91pptGUS6A9H_IzRcYMmnfPlMAt0"
@@ -315,7 +318,7 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--email",    required=True)
     p.add_argument("--password", required=True)
-    p.add_argument("--out-dir",  default="./img/nuove_immagini_recuperate")
+    p.add_argument("--out-dir",  default=str(OUTPUTS / "nuove_immagini_recuperate"))
     p.add_argument("--delay",    type=float, default=0.15)
     p.add_argument("--explore",  action="store_true")
     return p.parse_args()

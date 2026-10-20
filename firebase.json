@@ -7,19 +7,17 @@
       ".git/**",
       "**/.*/**",
       "**/node_modules/**",
+      "**/__pycache__/**",
       "**/*.py",
-      "test-iframe.html",
       "**/*.rtf",
       "**/*.txt",
       "**/*.md",
       "**/*.pdf",
-      "stato.json",
-      "backup_*.json",
-      "**/__pycache__/**",
-      "img/immagini_recuperate/**",
-      "img/nuove_immagini_recuperate/**",
-      "img/screen-sito/**",
-      "inserimento-esempio/**"
+      "**/backup_*.json",
+      "documenti/**",
+      "outputs/**",
+      "script/puzzel/**",
+      "script/integrazione/**"
     ],
     "headers": [
       {

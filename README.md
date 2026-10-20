@@ -5,10 +5,27 @@ Piattaforma web di mini-giochi didattici (anatomia/neuroradiologia). Vanilla HTM
 ## Stack e hosting
 
 - **Nessun build step**: `firebase.json` pubblica la root del repo (`"public": "."`) così com'è.
-- **Firestore** come unico backend, progetto `olimpiadi-radiologia` (config in [firebase-init.js](firebase-init.js): `apiKey` pubblica lato client — normale per Firebase, la sicurezza reale è nelle regole Firestore, non nella segretezza della chiave).
+- **Firestore** come unico backend, progetto `olimpiadi-radiologia` (config in [script/comune/firebase-init.js](script/comune/firebase-init.js): `apiKey` pubblica lato client — normale per Firebase, la sicurezza reale è nelle regole Firestore, non nella segretezza della chiave).
 - **Nessun Firebase Auth**: login in [login.html](login.html) è un controllo hardcoded lato client (`admin/admin`, `agente/agente`, `utente1/utente1`, `utente2/utente2`), stato tenuto in `sessionStorage`. L'account `agente` vede solo la cartella `agente_selezione` (copia di 21 attività, una per tipo di gioco e livello) e può giocare/vedere la soluzione ma non modificare. Chi integra un'interfaccia diversa dovrà sostituire questo meccanismo con qualcosa di reale.
 - **Deploy**: `firebase deploy --only hosting` (richiede CLI autenticata sul progetto in [.firebaserc](.firebaserc)).
 - Le immagini delle attività sono salvate come base64 compresso **dentro i documenti Firestore** (niente Firebase Storage).
+
+## Struttura delle cartelle
+
+Le pagine HTML, `catalogo.json`, i CSS e i file di Firebase restano nella root: i loro indirizzi sono pubblici (es. `anatomiadi.eu/play.html`, `anatomiadi.eu/catalogo.json`) e non devono cambiare.
+
+| Cartella | Contenuto | Online |
+|---|---|---|
+| `script/comune/` | `firebase-init.js`, connessione a Firestore usata da tutte le pagine | sì |
+| `script/giochi/` | i motori dei giochi caricati da `game.html` e `image-viewer.js` (riquadro immagine con zoom dei giochi a griglia) | sì |
+| `script/dashboard/` | `folders.js` (per `folders.html`) e `index.js` (per `index.html`) | sì |
+| `script/statistiche/` | `stats.js` (per `stats.html`) | sì |
+| `script/puzzel/` | script Python per scaricare le attività da puzzel.org | no |
+| `script/integrazione/` | pagine di prova locali per l'iframe di `play.html` (non versionate) | no |
+| `documenti/` | documenti e appunti (pdf, txt, rtf) | no |
+| `outputs/` | file prodotti dagli script e copie dei dati (es. `stato.json`, backup, immagini scaricate) | no |
+
+I moduli ES importano `firebase-init.js` con un percorso relativo al file stesso: dalle pagine `./script/comune/firebase-init.js`, da `script/dashboard/` e `script/statistiche/` `../comune/firebase-init.js`.
 
 ## Gerarchia pagine (chi chiama chi)
 
@@ -25,7 +42,7 @@ login.html ──(utente non-admin)──> resta in attesa (ascolta lobby/curren
                                     finché l'admin non lo mette in sessione ──> game.html
 ```
 
-- `index.html` + `index.js`: dashboard "flat" delle attività senza cartelle — versione alternativa/precedente a `folders.html`.
+- `index.html` + `script/dashboard/index.js`: dashboard "flat" delle attività senza cartelle — versione alternativa/precedente a `folders.html`.
 - `404.html`: pagina di errore di default di Firebase Hosting.
 - Tutte le pagine admin (`home`, `folders`, `stats`, `editor`, `sequence-editor`, `lobby`, `session`) importano `firebase-init.js` come modulo ES e parlano direttamente con Firestore, non c'è un layer API.
 
@@ -35,13 +52,13 @@ login.html ──(utente non-admin)──> resta in attesa (ascolta lobby/curren
 
 | templateKey | File | Entry point |
 |---|---|---|
-| `crossword` | [crossword.js](crossword.js) | `class Crossword` |
+| `crossword` | [crossword.js](script/giochi/crossword.js) | `class Crossword` |
 | `hangman` | inline in `game.html` | `initHangman()` (unico senza file proprio) |
-| `trova-intruso` | [trova-intruso.js](trova-intruso.js) | `initTrovaIntruso()` |
-| `radiazione-a-catena` | [radiazione-a-catena.js](radiazione-a-catena.js) | `initRadiazione()` |
-| `se-conosci-riconosci` | [se-conosci-riconosci.js](se-conosci-riconosci.js) | `class SeConosci` |
-| `guess-what` | [guess-what.js](guess-what.js) | `initGuessWhat()` |
-| `passa-e-spassa` | [passa-e-spassa.js](passa-e-spassa.js) | `initPassaESpassa()` |
+| `trova-intruso` | [trova-intruso.js](script/giochi/trova-intruso.js) | `initTrovaIntruso()` |
+| `radiazione-a-catena` | [radiazione-a-catena.js](script/giochi/radiazione-a-catena.js) | `initRadiazione()` |
+| `se-conosci-riconosci` | [se-conosci-riconosci.js](script/giochi/se-conosci-riconosci.js) | `class SeConosci` |
+| `guess-what` | [guess-what.js](script/giochi/guess-what.js) | `initGuessWhat()` |
+| `passa-e-spassa` | [passa-e-spassa.js](script/giochi/passa-e-spassa.js) | `initPassaESpassa()` |
 
 Contratto comune: `new/init(container, dati, { onWin, onLose, onStartTimer, onRegisterSolution })`. `game.html` gestisce attorno a questo timer, tastiera a schermo, modale risultato e log statistiche — è il punto più semplice per riusare un singolo gioco in un'altra shell.
 
@@ -54,18 +71,18 @@ Contratto comune: `new/init(container, dati, { onWin, onLose, onStartTimer, onRe
 | `filesystem` | id cartella (`root` = radice) | `{ items: [...] }`, ogni item è `folder` (id, name, color) o `activity` (metadati leggeri: id, name, activityType, templateKey, date, timerMinutes, timerSeconds, zones, difficulty). `agente_selezione` contiene solo copie di attività che vivono in altre cartelle. |
 | `activities` | `a_<timestamp>` | Documento completo per attività: campi specifici per tipo (`words`, `questions`, `images`, `labels`, `phrases`, `hiddenSolution`, ecc.) + `folderId`, `zones` (array tra `CTV`, `SN`, `AP`, `MS`, `TC`), `difficulty` (1–3). Trova l'Intruso può avere `commonQuestion: { options, correctIndex }`, la domanda facoltativa «Cosa hanno in comune le immagini?» posta dopo aver trovato le immagini giuste (`null` = nessuna domanda) |
 
-Editor, `folders.js` e `index.js` modificano le cartelle solo con transazioni Firestore (rileggono la cartella lato server prima di scrivere), così più persone possono salvare contemporaneamente senza cancellarsi gli inserimenti a vicenda. Fa eccezione solo il ripristino da backup in `index.html`, che sovrascrive tutto per definizione.
+Editor, `script/dashboard/folders.js` e `script/dashboard/index.js` modificano le cartelle solo con transazioni Firestore (rileggono la cartella lato server prima di scrivere), così più persone possono salvare contemporaneamente senza cancellarsi gli inserimenti a vicenda. Fa eccezione solo il ripristino da backup in `index.html`, che sovrascrive tutto per definizione.
 | `sequences` | `seq_<timestamp>` | Sequenza di attività per sessioni di gruppo: `{ id, name, createdAt, steps: [{ id, activityType, activities: [ids], randomize }] }` |
 | `lobby` | `current` (singleton) | Stato live della sessione in corso, letto in realtime (`onSnapshot`) da `login.html`/`session.html`: `{ seqId, seqName, steps, activityIds, selectedUsers, status: idle\|pre-game\|active\|complete, currentIdx, gameStartTime }` |
 | `presence` | username | Heartbeat online `{ ts }`, scritto ogni 5s da `login.html` |
 | `userStatus` | username | Esito sull'attività corrente della sessione: `{ activityId, status: win\|timeout, completedAt }` |
-| `gameStats` | auto-id | Log di ogni partita: `{ activityId, timestamp }`, aggregato in `stats.html`/`stats.js` (Chart.js) |
+| `gameStats` | auto-id | Log di ogni partita: `{ activityId, timestamp }`, aggregato in `stats.html`/`script/statistiche/stats.js` (Chart.js) |
 
 ## File di servizio (non parte dell'app live)
 
-- [scrape.py](scrape.py) / [scrape_nuovi.py](scrape_nuovi.py): script una tantum per importare i puzzle dalla piattaforma originale (puzzel.org) in questo formato (richiedono `--email`/`--password` di quell'account).
-- `stato.json`: vecchio export locale di `filesystem`, non referenziato da nessuna pagina — solo backup manuale.
-- `img/`, `inserimento-esempio/`: asset/esempi, esclusi dal deploy hosting (vedi `firebase.json` → `hosting.ignore`).
+- [script/puzzel/scrape.py](script/puzzel/scrape.py) / [script/puzzel/scrape_nuovi.py](script/puzzel/scrape_nuovi.py): script una tantum per scaricare i puzzle dalla piattaforma originale (puzzel.org) in `outputs/` (richiedono `--email`/`--password` di quell'account). Si lanciano dalla root, es. `python script/puzzel/scrape.py ...`.
+- `outputs/stato.json`: vecchio export locale di `filesystem`, non referenziato da nessuna pagina — solo backup manuale.
+- `documenti/`, `outputs/`, `script/puzzel/`, `script/integrazione/` sono esclusi dal deploy hosting (vedi `firebase.json` → `hosting.ignore`).
 
 ## Integrazione esterna via iframe
 
