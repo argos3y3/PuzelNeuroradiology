@@ -1,6 +1,7 @@
 // commonQuestion (optional, set in the editor): { options: [...], correctIndex }. When present,
-// finding the right images opens the question "Cosa hanno in comune le immagini?" and its
-// answer decides the closing message; without it the images alone decide.
+// finding the right images opens the question "Cosa hanno in comune le immagini?": a wrong
+// option flashes red and the player chooses again, and the win message reports how many
+// attempts the images and the question took. Without it the images alone decide.
 function initTrovaIntruso(container, images, callbacks, commonQuestion) {
     // Randomize the on-screen order on every play, so the intruder's position
     // isn't memorizable across attempts.
@@ -65,7 +66,10 @@ function initTrovaIntruso(container, images, callbacks, commonQuestion) {
         else if (questionPopup.style.display === 'flex') closeQuestion();
     });
 
-    const IMAGES_RIGHT = 'Hai selezionato correttamente tutte le strutture della stessa categoria';
+    const attempt = n => n === 1 ? 'al primo tentativo' : `al ${n}° tentativo`;
+    let imageTries = 0;      // UNLOCK presses so far
+    let imagesFoundAt = 0;   // the press that found the right images
+    let questionTries = 0;
     const optionsBox = document.getElementById('tiQuestionOptions');
     options.forEach((opt, i) => {
         const btn = document.createElement('button');
@@ -74,12 +78,19 @@ function initTrovaIntruso(container, images, callbacks, commonQuestion) {
         btn.innerHTML = `<span class="ti-option-letter">${String.fromCharCode(65 + i)}</span><span></span>`;
         btn.lastChild.textContent = opt.text;
         btn.addEventListener('click', () => {
+            questionTries++;
+            if (!opt.correct) {
+                // flash red for a moment, then the player picks again
+                btn.classList.remove('ti-option-wrong');
+                void btn.offsetWidth; // restart the animation on a repeated click
+                btn.classList.add('ti-option-wrong');
+                return;
+            }
             closeQuestion();
-            // images right but answer wrong: still a win for now, with the mistake spelled out
-            if (opt.correct) callbacks.onWin(`${IMAGES_RIGHT} e hai riconosciuto cosa hanno in comune: ${rightAnswer}.`);
-            else callbacks.onWin(`${IMAGES_RIGHT}.`,
-                `Però la risposta alla domanda è sbagliata: hai scelto «${opt.text}», quella giusta era «${rightAnswer}».`);
+            callbacks.onWin(`Hai trovato il gruppo di immagini associate ${attempt(imagesFoundAt)}.\n` +
+                            `Hai indovinato cosa hanno in comune («${rightAnswer}») ${attempt(questionTries)}.`);
         });
+        btn.addEventListener('animationend', () => btn.classList.remove('ti-option-wrong'));
         optionsBox.appendChild(btn);
     });
 
@@ -126,9 +137,13 @@ function initTrovaIntruso(container, images, callbacks, commonQuestion) {
         const correct = selected.size === nonIntrusoIndices.size &&
                         [...selected].every(i => nonIntrusoIndices.has(i));
 
+        imageTries++;
         if (!correct) tiError.style.display = 'block';
-        else if (question) openQuestion();
-        else callbacks.onWin(`${IMAGES_RIGHT}!`);
+        else if (question) {
+            if (!imagesFoundAt) imagesFoundAt = imageTries; // reopening after × doesn't count again
+            openQuestion();
+        }
+        else callbacks.onWin('Hai selezionato correttamente tutte le strutture della stessa categoria!');
     });
 
     callbacks.onRegisterSolution?.(() => {
