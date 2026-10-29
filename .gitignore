@@ -86,3 +86,7 @@ outputs/codici_puzzel.txt
 
 # Documenti e appunti: restano solo in locale
 documenti/
+# Dataset per l'agente IA e script che lo crea: contengono le soluzioni e la divisione
+# tra dati consegnati e riservati (la repo è pubblica)
+outputs/dataset_agente/
+script/agente/
