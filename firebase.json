@@ -17,7 +17,8 @@
       "documenti/**",
       "outputs/**",
       "script/puzzel/**",
-      "script/integrazione/**"
+      "script/integrazione/**",
+      "script/agente/**"
     ],
     "headers": [
       {

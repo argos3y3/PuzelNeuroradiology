@@ -21,6 +21,7 @@ Piattaforma web di mini-giochi didattici (anatomia/neuroradiologia), online su [
 | `script/statistiche/` | `stats.js` (per `stats.html`) | sì | sì |
 | `script/puzzel/` | script Python per scaricare le attività da puzzel.org | no | sì (tranne `lista_codici_puzzel.py`) |
 | `script/integrazione/` | pagine di prova locali per l'iframe di `play.html` | no | no |
+| `script/agente/` | dataset e server locale per l'agente IA dello stand (contengono le soluzioni e la divisione dei dati) | no | no |
 | `documenti/` | documenti e appunti (pdf, txt, rtf) | no | no |
 | `outputs/` | file prodotti dagli script e copie dei dati (immagini scaricate, backup, elenco codici, `stato.json`) | no | solo `stato.json` |
 | `catalogo.json` | valori ammessi da `play.html` (zone, difficoltà, tipi) | sì | sì |
@@ -119,9 +120,10 @@ Editor, `script/dashboard/folders.js` e `script/dashboard/index.js` modificano l
 ## File di servizio (non parte dell'app live)
 
 - [script/puzzel/scrape.py](script/puzzel/scrape.py) / [script/puzzel/scrape_nuovi.py](script/puzzel/scrape_nuovi.py): script una tantum per scaricare i puzzle dalla piattaforma originale (puzzel.org) in `outputs/` (richiedono `--email`/`--password` di quell'account). Funzionano da qualunque cartella, es. `python script/puzzel/scrape.py ...`; `lista_codici_puzzel.py` (solo in locale) scrive l'elenco dei codici in `outputs/codici_puzzel.txt`.
+- `script/agente/` (solo in locale): `crea_dataset.py` costruisce il dataset per l'agente IA in `outputs/dataset_agente/` (metà consegnata in train/eval, metà riservata); `formato.py` è il formato dei giochi dell'API; `server_stand.py` è il server locale dello stand (modalità prova e stand); `API.md` ed `esempio_agente.py` vanno a GPI con il dataset.
 - `outputs/stato.json`: vecchio export locale di `filesystem`, non referenziato da nessuna pagina — solo backup manuale.
-- Non sono pubblicati sul sito (`firebase.json` → `hosting.ignore`): `documenti/`, `outputs/`, `script/puzzel/`, `script/integrazione/`, la cartella `.git` e ogni file o cartella che inizia con un punto.
-- Non sono su GitHub (`.gitignore`): `documenti/`, le immagini scaricate e gli altri file in `outputs/` (tranne `stato.json`), `script/integrazione/`, i backup `backup_*.json`.
+- Non sono pubblicati sul sito (`firebase.json` → `hosting.ignore`): `documenti/`, `outputs/`, `script/puzzel/`, `script/integrazione/`, `script/agente/`, la cartella `.git` e ogni file o cartella che inizia con un punto.
+- Non sono su GitHub (`.gitignore`): `documenti/`, le immagini scaricate e gli altri file in `outputs/` (tranne `stato.json`), `script/integrazione/`, `script/agente/` e `outputs/dataset_agente/`, i backup `backup_*.json`.
 
 ## Integrazione esterna via iframe
 
