@@ -42,6 +42,15 @@
             "value": "no-cache"
           }
         ]
+      },
+      {
+        "source": "etichettatura_dati/dati.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ],
     "rewrites": [
@@ -56,6 +65,10 @@
       {
         "source": "/editor.html",
         "destination": "/pagine/editor.html"
+      },
+      {
+        "source": "/etichettatura.html",
+        "destination": "/pagine/etichettatura.html"
       },
       {
         "source": "/folders.html",

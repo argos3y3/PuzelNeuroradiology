@@ -90,3 +90,7 @@ documenti/
 # tra dati consegnati e riservati (la repo è pubblica)
 outputs/dataset_agente/
 script/agente/
+
+# Dati della pagina di etichettatura (immagini e parole dei giochi): vanno online con il deploy,
+# non su GitHub. Si rigenerano con script/agente/prepara_etichettatura.py --sito
+etichettatura_dati/

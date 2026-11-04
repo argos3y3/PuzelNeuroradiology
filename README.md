@@ -6,7 +6,7 @@ Piattaforma web di mini-giochi didattici (anatomia/neuroradiologia), online su [
 
 - **Nessun build step**: `firebase.json` pubblica la root del repo (`"public": "."`) così com'è, escludendo tutto ciò che non serve al sito (vedi [Struttura delle cartelle](#struttura-delle-cartelle)).
 - **Firestore** come unico backend, progetto `olimpiadi-radiologia` (config in [script/comune/firebase-init.js](script/comune/firebase-init.js): `apiKey` pubblica lato client — normale per Firebase, la sicurezza reale è nelle regole Firestore, non nella segretezza della chiave).
-- **Nessun Firebase Auth**: login in [pagine/login.html](pagine/login.html) è un controllo hardcoded lato client (`admin/admin`, `agente/agente`, `utente1/utente1`, `utente2/utente2`), stato tenuto in `sessionStorage`. L'account `agente` vede solo la cartella `agente_selezione` (copia di 21 attività, una per tipo di gioco e livello) e può giocare/vedere la soluzione ma non modificare. Chi integra un'interfaccia diversa dovrà sostituire questo meccanismo con qualcosa di reale.
+- **Nessun Firebase Auth**: login in [pagine/login.html](pagine/login.html) è un controllo hardcoded lato client (`admin/admin`, `agente/agente`, `label/label`, `utente1/utente1`, `utente2/utente2`), stato tenuto in `sessionStorage`. L'account `label` apre solo `etichettatura.html` (anche `admin` può aprirla). L'account `agente` vede solo la cartella `agente_selezione` (copia di 21 attività, una per tipo di gioco e livello) e può giocare/vedere la soluzione ma non modificare. Chi integra un'interfaccia diversa dovrà sostituire questo meccanismo con qualcosa di reale.
 - **Deploy**: `firebase deploy --only hosting` (richiede CLI autenticata sul progetto in [.firebaserc](.firebaserc)).
 - Le immagini delle attività sono salvate come base64 compresso **dentro i documenti Firestore** (niente Firebase Storage).
 
@@ -24,6 +24,7 @@ Piattaforma web di mini-giochi didattici (anatomia/neuroradiologia), online su [
 | `script/agente/` | dataset e server locale per l'agente IA dello stand (contengono le soluzioni e la divisione dei dati) | no | no |
 | `documenti/` | documenti e appunti (pdf, txt, rtf) | no | no |
 | `outputs/` | file prodotti dagli script e copie dei dati (immagini scaricate, backup, elenco codici, `stato.json`) | no | solo `stato.json` |
+| `etichettatura_dati/` | immagini e parole dei giochi per `etichettatura.html`, generati da `script/agente/prepara_etichettatura.py --sito` | sì | no |
 | `catalogo.json` | valori ammessi da `play.html` (zone, difficoltà, tipi) | sì | sì |
 | `404.html` | pagina di errore di Firebase Hosting: deve restare nella root | sì | sì |
 
@@ -65,6 +66,8 @@ login.html ──(admin)──> home.html ─┬─> folders.html ──> editor
                                     └─> sequence-editor.html ──> lobby.html ──> session.html
                                                                                     │
                                                                     (avvia)  ──> game.html
+
+login.html ──(label)──> etichettatura.html (nomi anatomici completi delle immagini, per il dataset dell'agente IA)
 
 login.html ──(utente non-admin)──> resta in attesa (ascolta lobby/current in realtime)
                                     finché l'admin non lo mette in sessione ──> game.html
@@ -114,16 +117,17 @@ Contratto comune: `new/init(container, dati, { onWin, onLose, onStartTimer, onRe
 | `presence` | username | Heartbeat online `{ ts }`, scritto ogni 5s da `login.html` |
 | `userStatus` | username | Esito sull'attività corrente della sessione: `{ activityId, status: win\|timeout, completedAt }` |
 | `gameStats` | auto-id | Log di ogni partita: `{ activityId, timestamp }`, aggregato in `stats.html`/`script/statistiche/stats.js` (Chart.js) |
+| `etichettatura` | `etichette_0` … `etichette_f`, `categorie` | Etichette scritte in `etichettatura.html`: `{ m: { <id immagine>: { label, unsure, note, problema, at, chi, prima } } }`, divise in 16 documenti per prima cifra dell'id (poche letture, nessun documento troppo grande); `categorie` = `{ m: { <id attività Trova l'Intruso>: { categoria, at, chi } } }`. Si scaricano con `script/agente/importa_etichette.py --online` o con «Scarica etichette» nella pagina |
 
 Editor, `script/dashboard/folders.js` e `script/dashboard/index.js` modificano le cartelle solo con transazioni Firestore (rileggono la cartella lato server prima di scrivere), così più persone possono salvare contemporaneamente senza cancellarsi gli inserimenti a vicenda. Fa eccezione solo il ripristino da backup in `index.html`, che sovrascrive tutto per definizione.
 
 ## File di servizio (non parte dell'app live)
 
 - [script/puzzel/scrape.py](script/puzzel/scrape.py) / [script/puzzel/scrape_nuovi.py](script/puzzel/scrape_nuovi.py): script una tantum per scaricare i puzzle dalla piattaforma originale (puzzel.org) in `outputs/` (richiedono `--email`/`--password` di quell'account). Funzionano da qualunque cartella, es. `python script/puzzel/scrape.py ...`; `lista_codici_puzzel.py` (solo in locale) scrive l'elenco dei codici in `outputs/codici_puzzel.txt`.
-- `script/agente/` (solo in locale): `crea_dataset.py` costruisce il dataset per l'agente IA in `outputs/dataset_agente/` (metà consegnata in train/eval, metà riservata); `formato.py` è il formato dei giochi dell'API; `server_stand.py` è il server locale dello stand (modalità prova e stand); `API.md` ed `esempio_agente.py` vanno a GPI con il dataset. Per i nomi anatomici completi delle immagini: `prepara_etichettatura.py` crea `outputs/dataset_agente/etichettatura.zip` (pagina offline `etichettatura.html` per gli specializzandi, per Safari e Chrome: salvataggio su file, lavoro in più persone, segnalazione dei problemi), `importa_etichette.py` unisce i file che salvano in `outputs/dataset_agente/etichette.json` e scrive l'elenco dei problemi in `problemi_etichette.txt`; `crea_dataset.py` usa le etichette come `images[].label` e i problemi come `images[].label_issue`.
+- `script/agente/` (solo in locale): `crea_dataset.py` costruisce il dataset per l'agente IA in `outputs/dataset_agente/` (metà consegnata in train/eval, metà riservata); `formato.py` è il formato dei giochi dell'API; `server_stand.py` è il server locale dello stand (modalità prova e stand); `API.md` ed `esempio_agente.py` vanno a GPI con il dataset. Per i nomi anatomici completi delle immagini: la pagina online `pagine/etichettatura.html` (utente `label`, Safari e Chrome, più persone insieme in tempo reale, segnalazione dei problemi) legge `etichettatura_dati/`, che `prepara_etichettatura.py --sito` genera prima del deploy; senza `--sito` lo stesso script crea `outputs/dataset_agente/etichettatura.zip`, versione offline di riserva. `importa_etichette.py --online` (o con i file salvati) unisce le etichette in `outputs/dataset_agente/etichette.json` e scrive l'elenco dei problemi in `problemi_etichette.txt`; `crea_dataset.py` usa le etichette come `images[].label` e i problemi come `images[].label_issue`.
 - `outputs/stato.json`: vecchio export locale di `filesystem`, non referenziato da nessuna pagina — solo backup manuale.
 - Non sono pubblicati sul sito (`firebase.json` → `hosting.ignore`): `documenti/`, `outputs/`, `script/puzzel/`, `script/integrazione/`, `script/agente/`, la cartella `.git` e ogni file o cartella che inizia con un punto.
-- Non sono su GitHub (`.gitignore`): `documenti/`, le immagini scaricate e gli altri file in `outputs/` (tranne `stato.json`), `script/integrazione/`, `script/agente/` e `outputs/dataset_agente/`, i backup `backup_*.json`.
+- Non sono su GitHub (`.gitignore`): `documenti/`, le immagini scaricate e gli altri file in `outputs/` (tranne `stato.json`), `script/integrazione/`, `script/agente/` e `outputs/dataset_agente/`, `etichettatura_dati/` (che invece va online), i backup `backup_*.json`.
 
 ## Integrazione esterna via iframe
 

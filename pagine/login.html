@@ -246,6 +246,7 @@ import { doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/fire
 const USERS = {
     'admin':   { password: 'admin',   role: 'admin'  },
     'agente':  { password: 'agente',  role: 'agente' },
+    'label':   { password: 'label',   role: 'label'  },
     'utente1': { password: 'utente1', role: 'user'   },
     'utente2': { password: 'utente2', role: 'user'   }
 };
@@ -348,6 +349,9 @@ function doLogin() {
     } else if (record.role === 'agente') {
         sessionStorage.setItem('puzAuth', JSON.stringify({ user, role: 'agente' }));
         window.location.href = 'folders.html';
+    } else if (record.role === 'label') {
+        sessionStorage.setItem('puzAuth', JSON.stringify({ user, role: 'label' }));
+        window.location.href = 'etichettatura.html';
     } else {
         sessionStorage.setItem('puzUserName', user);
         loginForm.style.display = 'none';
@@ -390,6 +394,7 @@ if (returnUser) {
 const existing = JSON.parse(sessionStorage.getItem('puzAuth') || 'null');
 if (existing?.role === 'admin')  window.location.href = 'home.html';
 if (existing?.role === 'agente') window.location.href = 'folders.html';
+if (existing?.role === 'label')  window.location.href = 'etichettatura.html';
 
 usernameEl.focus();
 </script>

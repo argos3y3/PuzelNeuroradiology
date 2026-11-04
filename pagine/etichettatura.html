@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etichettatura immagini</title>
+<script>
+  (function () {
+    var auth = null;
+    try { auth = JSON.parse(sessionStorage.getItem('puzAuth') || 'null'); } catch (e) {}
+    if (!auth || (auth.role !== 'label' && auth.role !== 'admin')) window.location.replace('login.html');
+  })();
+</script>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1b2a41;--muted:#5a6577;--line:#ddd9cf;--accent:#1d4ed8;--ok:#15803d;--warn:#b45309;--prob:#f59e0b;--prop:#fef3c7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 16px;background:var(--ink);color:#fff}
+header h1{font-size:17px;margin:0 4px 0 0}
+.grow{flex:1}
+header button{background:#2d4166;color:#fff;border:0;border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer;white-space:nowrap}
+header button:hover{background:#3b5584}
+header #btnWho{background:none;padding:2px 4px;text-decoration:underline dotted;text-underline-offset:3px}
+#count{font-size:14px}
+#saveState{font-size:13px;padding:2px 10px;border-radius:999px}
+#saveState.ok{background:#14532d;color:#bbf7d0}
+#saveState.warn{background:#92400e;color:#fde68a}
+#saveState.err{background:#991b1b;color:#fecaca}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:8px 16px;border-bottom:1px solid var(--line);background:#fff}
+.bar select,.bar input{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.progress{height:6px;background:#e5e2d9;display:flex}
+.progress div{height:100%;width:0}
+#p1{background:var(--ok)}#p2{background:var(--prob)}
+main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(320px,1fr);gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.viewer{background:#000;border-radius:10px;display:flex;align-items:center;justify-content:center;min-height:360px;position:relative}
+.viewer img{max-width:100%;max-height:72vh;cursor:zoom-in}
+.viewer .tag{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:#fff;padding:2px 8px;border-radius:4px;font-size:13px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.uses{font-size:14px}
+.uses b{font-weight:650}
+.word{display:inline-block;background:#eef2ff;color:#1e3a8a;border-radius:4px;padding:0 6px;font-weight:650;letter-spacing:.5px}
+.ctx{font-size:13px;color:var(--muted);max-height:110px;overflow:auto;border-left:3px solid var(--line);padding-left:8px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px}
+.thumbs img{width:72px;height:60px;object-fit:cover;border-radius:4px;border:2px solid transparent;cursor:pointer;background:#000}
+.thumbs img.cur{border-color:var(--accent)}
+.thumbs img.intr{outline:2px dashed #dc2626;outline-offset:1px}
+label.f{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px}
+label.f input[type=text],label.f select{font:inherit;font-weight:400;padding:8px 10px;border:2px solid var(--line);border-radius:8px;background:#fff}
+label.f input.big{font-size:17px}
+label.f input.prop{background:var(--prop)}
+label.f input:focus,label.f select:focus{outline:none;border-color:var(--accent)}
+label.f select.on{border-color:var(--prob);background:#fffbeb}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{font:inherit;font-size:13px;border:1px solid var(--line);background:#f8fafc;border-radius:999px;padding:3px 10px;cursor:pointer}
+.chips button:hover{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.nav button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:650}
+.status{font-size:13px;font-weight:600}
+.status.done{color:var(--ok)}.status.todo{color:var(--muted)}.status.prob{color:var(--warn)}
+.hint{font-size:12.5px;color:var(--muted)}
+#liveNote{font-size:13px;font-weight:600;color:#7c2d12;background:#ffedd5;border-radius:6px;padding:6px 10px}
+#liveNote:empty{display:none}
+#formHint{color:#b91c1c;font-weight:600;font-size:13.5px}
+#formHint:empty{display:none}
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:10;cursor:zoom-out}
+.overlay img{max-width:96vw;max-height:96vh}
+dialog{max-width:680px;width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;border:0;border-radius:12px;padding:20px 22px;color:var(--ink)}
+dialog::backdrop{background:rgba(15,23,42,.55)}
+dialog h2{margin-top:0}
+dialog h3{margin:16px 0 4px;font-size:15px}
+dialog p,dialog li{font-size:14.5px}
+#whoHint{color:#b91c1c;font-size:13px;font-weight:600}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+#msgs{position:fixed;left:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:20;max-width:440px;width:calc(100vw - 32px)}
+.msg{background:#1b2a41;color:#fff;border-radius:8px;padding:10px 38px 10px 12px;position:relative;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.msg.warn{background:#92400e}
+.msg.err{background:#991b1b}
+.msg button{position:absolute;top:4px;right:6px;background:none;border:0;color:#fff;font-size:20px;line-height:1;padding:4px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>Etichettatura immagini</h1>
+  <button id="btnWho" type="button" title="Cambia nome"></button>
+  <span class="grow"></span>
+  <span id="count"></span>
+  <span id="saveState"></span>
+  <button id="btnHelp" type="button">Istruzioni</button>
+  <button id="btnDownload" type="button" title="Scarica tutte le etichette in un file JSON">Scarica etichette</button>
+  <button id="btnLogout" type="button">Esci</button>
+</header>
+<div class="progress"><div id="p1"></div><div id="p2"></div></div>
+<div class="bar">
+  <label>Gioco <select id="fGame"></select></label>
+  <label>Distretto <select id="fZone"></select></label>
+  <label>Mostra <select id="fState">
+    <option value="todo">da fare</option>
+    <option value="review">da rivedere (incerte o con problema)</option>
+    <option value="prob">con problema</option>
+    <option value="unsure">incerte</option>
+    <option value="done">etichettate</option>
+    <option value="all">tutte</option></select></label>
+  <label>Fatte da <select id="fWho"></select></label>
+  <label>Cerca <input id="fSearch" type="search" placeholder="parola o attività" size="16" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
+  <span class="grow"></span>
+  <span id="pos" class="hint"></span>
+</div>
+<main id="main"><div class="empty" style="grid-column:1/-1">Caricamento delle immagini e delle etichette…</div></main>
+<datalist id="vocab"></datalist>
+<div class="overlay" id="overlay"><img id="overlayImg" alt=""></div>
+<div id="msgs" aria-live="polite"></div>
+<dialog id="help">
+  <h2>Etichettatura delle immagini</h2>
+  <label class="f">Il tuo nome (compare accanto alle tue etichette)
+    <input id="inWho" type="text" autocomplete="name" autocorrect="off" spellcheck="false" placeholder="es. Mario Rossi"></label>
+  <div id="whoHint"></div>
+  <h3>Cosa fare</h3>
+  <p>Per ogni immagine scrivi il <b>nome anatomico completo</b> della struttura evidenziata (colorata o indicata da un punto), come lo scriveresti in un referto: per esempio <i>muscolo sovraspinato</i>, <i>arteria femorale comune</i>, <i>funicolo spermatico</i>.</p>
+  <ul>
+    <li>La parola usata nel gioco è solo un aiuto: spesso è una parte del nome (<span class="word">SPINATO</span>, <span class="word">FEMORALE</span>).</li>
+    <li>Le proposte in giallo e i suggerimenti vengono dai nomi già presenti nei giochi: controllali e conferma con Invio, oppure correggili.</li>
+    <li>Indica il lato (destro/sinistro) solo se è chiaro dall'immagine.</li>
+    <li>Se hai scritto un nome ma non ne sei sicuro, spunta <b>incerta</b>.</li>
+    <li>Se non riesci a dare un nome o qualcosa non torna, scegli il motivo in <b>Qualcosa non va?</b> e, se serve, spiegalo nella nota. Va bene anche senza nome: ci serve saperlo.</li>
+    <li>Nel Trova l'Intruso scrivi anche, una volta per gioco, la <b>categoria comune</b> delle cinque immagini del gruppo.</li>
+  </ul>
+  <p><b>Invio</b> conferma e passa alla successiva · <b>⌥ Option + ← / →</b> (Alt su Windows) immagine precedente o successiva · clic sull'immagine per ingrandirla.</p>
+  <h3>Salvataggio e lavoro in più persone</h3>
+  <p>Ogni conferma si salva <b>da sola online</b>: in alto vedi «tutto salvato online». Si può lavorare da più computer e in più persone insieme: vedi subito il lavoro degli altri, le immagini già fatte escono dalle «da fare» e ognuno parte da un punto diverso della lista. Se cade la connessione il lavoro resta su questo computer e parte appena torna la rete: in quel caso non chiudere la pagina finché non torna «tutto salvato online».</p>
+  <p>Se usi un computer condiviso, controlla che qui sopra ci sia il tuo nome.</p>
+  <div class="nav"><button type="button" class="primary" id="btnStart">Inizia</button></div>
+</dialog>
+<script type="module">
+import { db } from '/script/comune/firebase-init.js';
+import { collection, doc, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+
+// ── configuration ─────────────────────────────────────────────────────────
+const DATA = '/etichettatura_dati/';
+const params = new URLSearchParams(location.search);
+const LOCAL = /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+const COLL = (LOCAL && params.get('raccolta')) || 'etichettatura';   // tests on this computer use another collection
+const K_NAME = 'etichettatura_online_chi', K_SESSION = 'etichettatura_online_sessione', K_OUTBOX = 'etichettatura_online_attesa_' + COLL;
+const GAME_NAMES = {'trova-intruso': "Trova l'Intruso", 'passa-e-spassa': 'Passa e Spassa', 'crossword': 'Crucitomo',
+                    'se-conosci-riconosci': 'Filippino', 'radiazione-a-catena': 'Radiazione a Catena'};
+const PROBLEMS = [
+  ['non_so', 'Non la riconosco: la lascio a un collega'],
+  ['non_riconoscibile', 'La struttura non si riconosce da questa immagine'],
+  ['evidenziazione', 'Evidenziazione assente o poco chiara'],
+  ['piu_strutture', 'Sono evidenziate più strutture'],
+  ['parola_errata', "La parola del gioco non corrisponde all'immagine"],
+  ['qualita', 'Immagine di qualità insufficiente'],
+  ['altro', 'Altro (spiega nella nota)']
+];
+const PROB = {};
+PROBLEMS.forEach(p => { PROB[p[0]] = p[1]; });
+
+// ── state ─────────────────────────────────────────────────────────────────
+let D = null;                          // images and games (dati.json)
+const byId = {};
+let server = {labels: {}, cats: {}};   // what Firestore has
+let gotServer = false, connected = null, started = false;
+let outbox = readJSON(K_OUTBOX, {});   // confirmed here, not yet acknowledged by Firestore
+let me = readLocal(K_NAME) || '';
+let order = [], rank = {}, list = [], idx = 0, shown = '';
+
+const $ = id => document.getElementById(id);
+function readLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function writeLocal(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function readJSON(k, d) { try { return JSON.parse(readLocal(k)) || d; } catch (e) { return d; } }
+function saveOutbox() { writeLocal(K_OUTBOX, JSON.stringify(outbox)); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function fmt(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function toast(msg, kind, sticky) {
+  const d = document.createElement('div');
+  d.className = 'msg' + (kind ? ' ' + kind : '');
+  d.textContent = msg;
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = '×'; b.title = 'Chiudi';
+  b.onclick = () => d.remove();
+  d.appendChild(b);
+  $('msgs').appendChild(d);
+  while ($('msgs').children.length > 3) $('msgs').firstChild.remove();
+  if (!sticky) setTimeout(() => d.remove(), 9000);
+}
+
+// a record counts when it has a name or a problem
+function clean(r) {
+  if (!r || typeof r !== 'object') return null;
+  const label = String(r.label || '').trim(), problema = PROB[r.problema] ? r.problema : '';
+  if (!label && !problema) return null;
+  return {label, unsure: !!r.unsure, note: String(r.note || ''), problema, at: r.at || '', chi: r.chi || '', prima: r.prima || null};
+}
+function recordOf(id) {
+  const o = outbox['l:' + id];
+  return o ? o.rec : clean(server.labels[id]);
+}
+function catOf(act) {
+  const o = outbox['c:' + act];
+  return o ? o.rec : (server.cats[act] || null);
+}
+
+// ── writing ───────────────────────────────────────────────────────────────
+function shardOf(id) { return 'etichette_' + (/^[0-9a-f]/.test(id) ? id.charAt(0) : 'x'); }
+function send(key) {
+  const o = outbox[key];
+  if (!o) return;
+  const ref = o.kind === 'l' ? doc(db, COLL, shardOf(o.id)) : doc(db, COLL, 'categorie');
+  // every field is always written, so merging replaces the whole record
+  setDoc(ref, {m: {[o.id]: o.rec}}, {merge: true}).then(() => {
+    // the database has it: keep it in view until the next update from the database arrives
+    const known = o.kind === 'l' ? server.labels : server.cats;
+    if (!known[o.id] || (known[o.id].at || '') <= o.rec.at) known[o.id] = o.rec;
+    if (outbox[key] && outbox[key].rec.at === o.rec.at) { delete outbox[key]; saveOutbox(); }
+    updateSaveState();
+  }).catch(err => {
+    toast('Il database non ha accettato il salvataggio (' + (err && (err.code || err.message)) + '). Il lavoro resta su questo computer: avvisa Dimitri.', 'err', true);
+    updateSaveState();
+  });
+}
+function write(kind, id, rec) {
+  const key = kind + ':' + id;
+  outbox[key] = {kind, id, rec};
+  saveOutbox();
+  updateSaveState();
+  send(key);
+}
+
+// ── Firestore ─────────────────────────────────────────────────────────────
+onSnapshot(collection(db, COLL), snap => {
+  const labels = {}, cats = {};
+  snap.docs.forEach(d => {
+    const m = (d.data() || {}).m || {};
+    if (d.id.indexOf('etichette_') === 0) Object.assign(labels, m);
+    else if (d.id === 'categorie') Object.assign(cats, m);
+  });
+  server = {labels, cats};
+  gotServer = true;
+  connected = true;
+  if (started) liveUpdate(); else maybeStart();
+}, err => {
+  connected = false;
+  toast('Non riesco a collegarmi al database (' + (err && (err.code || err.message)) + '). Ricarica la pagina; se il problema resta avvisa Dimitri.', 'err', true);
+  updateSaveState();
+});
+
+fetch(DATA + 'dati.json', {cache: 'no-cache'}).then(r => {
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}).then(d => {
+  D = d;
+  D.immagini.forEach(im => { byId[im.id] = im; });
+  maybeStart();
+}).catch(e => {
+  $('main').innerHTML = '<div class="empty" style="grid-column:1/-1">Non riesco a caricare le immagini da etichettare (' + esc(e.message) + '). Ricarica la pagina; se il problema resta avvisa Dimitri.</div>';
+});
+// without a connection the page still opens, with what this computer knows
+setTimeout(() => {
+  if (!gotServer && D && !started) {
+    connected = false;
+    toast('Database non raggiungibile: puoi lavorare lo stesso, il lavoro parte appena torna la rete. Attenzione: non vedi il lavoro degli altri.', 'warn', true);
+    maybeStart(true);
+  }
+}, 10000);
+
+function maybeStart(force) {
+  if (started || !D || !(gotServer || force)) return;
+  started = true;
+  // resend what was confirmed here but never reached the database
+  Object.keys(outbox).forEach(k => {
+    const o = outbox[k];
+    const cur = o.kind === 'l' ? server.labels[o.id] : server.cats[o.id];
+    if (cur && (cur.at || '') >= (o.rec.at || '')) delete outbox[k];
+    else send(k);
+  });
+  saveOutbox();
+  const games = {}, zones = {};
+  D.immagini.forEach(im => im.usi.forEach(u => { games[u.gioco] = 1; (u.distretti || []).forEach(z => { zones[z] = 1; }); }));
+  fill($('fGame'), Object.keys(games).map(g => [g, GAME_NAMES[g] || g]), 'tutti');
+  fill($('fZone'), Object.keys(zones).sort().map(z => [z, z]), 'tutti');
+  buildOrder();
+  refreshVocab();
+  fillWho();
+  updateSaveState();
+  filter();
+  let seen = false;
+  try { seen = sessionStorage.getItem(K_SESSION) === '1'; } catch (e) {}
+  if (!me || !seen) openHelp();
+}
+
+// ── lists and filters ─────────────────────────────────────────────────────
+function fill(sel, values, all) {
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">' + all + '</option>' + values.map(v => '<option value="' + esc(v[0]) + '">' + esc(v[1]) + '</option>').join('');
+  sel.value = cur;
+  if (sel.value !== cur) sel.value = '';
+}
+function fillWho() {
+  const names = {};
+  D.immagini.forEach(im => { const r = recordOf(im.id); if (r && r.chi) names[r.chi] = 1; });
+  fill($('fWho'), Object.keys(names).sort().map(n => [n, n === me ? n + ' (tu)' : n]), 'chiunque');
+}
+function refreshVocab() {
+  const seen = {}, out = [];
+  D.vocabolario.concat(D.immagini.map(im => { const r = recordOf(im.id); return r && r.label; })).forEach(v => {
+    v = (v || '').trim();
+    if (v && !seen[v.toLowerCase()]) { seen[v.toLowerCase()] = 1; out.push(v); }
+  });
+  out.sort((a, b) => a.localeCompare(b, 'it'));
+  $('vocab').innerHTML = out.map(v => '<option value="' + esc(v) + '">').join('');
+}
+// same priorities for everyone, but each name starts from a different game inside each priority group,
+// so people working at the same time rarely meet on the same image
+function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h; }
+function buildOrder() {
+  const groups = [];
+  let g = null, block = null, key = null;
+  D.immagini.forEach(im => {
+    if (!g || g.prio !== im.priorita) { g = {prio: im.priorita, blocks: []}; groups.push(g); block = null; }
+    const k = im.usi[0] ? im.usi[0].attivita : '';
+    if (!block || k !== key) { block = []; g.blocks.push(block); key = k; }
+    block.push(im);
+  });
+  const h = hashStr(me.toLowerCase());
+  order = [];
+  groups.forEach(gr => {
+    const r = gr.blocks.length ? h % gr.blocks.length : 0;
+    gr.blocks.slice(r).concat(gr.blocks.slice(0, r)).forEach(b => b.forEach(im => order.push(im)));
+  });
+  rank = {};
+  order.forEach((im, i) => { rank[im.id] = i; });
+}
+function matches(im) {
+  const g = $('fGame').value, z = $('fZone').value, st = $('fState').value, w = $('fWho').value;
+  const q = $('fSearch').value.trim().toLowerCase();
+  if (g && !im.usi.some(u => u.gioco === g)) return false;
+  if (z && !im.usi.some(u => (u.distretti || []).indexOf(z) >= 0)) return false;
+  const r = recordOf(im.id);
+  if (st === 'todo' && r) return false;
+  if (st === 'review' && !(r && (r.unsure || r.problema))) return false;
+  if (st === 'prob' && !(r && r.problema)) return false;
+  if (st === 'unsure' && !(r && r.unsure)) return false;
+  if (st === 'done' && !(r && r.label)) return false;
+  if (w && st !== 'todo' && !(r && r.chi === w)) return false;
+  if (q && !im.usi.some(u => (u.parola || '').toLowerCase().indexOf(q) >= 0 || (u.attivita_nome || '').toLowerCase().indexOf(q) >= 0)) return false;
+  return true;
+}
+function filter(keepId) {
+  list = order.filter(matches);
+  idx = 0;
+  if (keepId) { const i = list.findIndex(im => im.id === keepId); if (i >= 0) idx = i; }
+  render();
+}
+// next or previous image of the current list, recomputed now (others may have done some meanwhile)
+function step(dir) {
+  const cur = list[idx];
+  list = order.filter(matches);
+  idx = 0;
+  if (cur && list.length) {
+    const p = rank[cur.id];
+    if (dir > 0) { idx = list.findIndex(im => rank[im.id] > p); if (idx < 0) idx = 0; }
+    else { idx = -1; for (let j = list.length - 1; j >= 0; j--) if (rank[list[j].id] < p) { idx = j; break; } if (idx < 0) idx = list.length - 1; }
+  }
+  render();
+}
+
+// ── header ────────────────────────────────────────────────────────────────
+function counts() {
+  let lab = 0, prob = 0;
+  const tot = D.immagini.length;
+  D.immagini.forEach(im => { const r = recordOf(im.id); if (r) { if (r.label) lab++; else prob++; } });
+  $('count').textContent = lab + ' etichettate · ' + prob + ' con problema · ' + (tot - lab - prob) + ' da fare';
+  $('p1').style.width = (100 * lab / tot).toFixed(2) + '%';
+  $('p2').style.width = (100 * prob / tot).toFixed(2) + '%';
+  $('btnWho').textContent = me ? me + ' ✎' : 'chi sei?';
+}
+function updateSaveState() {
+  const s = $('saveState'), n = Object.keys(outbox).length;
+  if (n) {
+    s.className = 'warn';
+    s.textContent = n + (n === 1 ? ' conferma' : ' conferme') + ' in attesa di salvataggio' + (navigator.onLine === false ? ' · sei offline' : '');
+  } else if (connected === false) {
+    s.className = 'err'; s.textContent = 'non collegato al database';
+  } else if (connected) {
+    s.className = 'ok'; s.textContent = '✓ tutto salvato online';
+  } else { s.className = ''; s.textContent = ''; }
+}
+function describe(r) {
+  if (!r) return '<div class="status todo">Da fare</div>';
+  const when = fmt(r.at);
+  const by = ' · ' + esc(r.chi === me ? 'da te' : 'da ' + (r.chi || '?')) + (when ? ' il ' + when : '');
+  let h = r.label
+    ? '<div class="status ' + (r.problema ? 'prob' : 'done') + '">Etichettata' + (r.unsure ? ' (incerta)' : '') + by +
+      (r.problema ? '<br>Problema: ' + esc(PROB[r.problema]) : '') + '</div>'
+    : '<div class="status prob">Problema: ' + esc(PROB[r.problema]) + by + '</div>';
+  if (r.note) h += '<div class="hint">Nota: ' + esc(r.note) + '</div>';
+  if (r.prima && (r.prima.label || r.prima.problema))
+    h += '<div class="hint">Prima: ' + esc(r.prima.label || 'problema «' + (PROB[r.prima.problema] || r.prima.problema) + '»') + ' (' + esc(r.prima.chi || '?') + ')</div>';
+  return h;
+}
+
+// position among the images that match the filters now (others may have done some meanwhile)
+function updatePos() {
+  const im = list[idx];
+  if (!im) { $('pos').textContent = ''; return; }
+  const all = order.filter(matches), p = rank[im.id];
+  $('pos').textContent = matches(im)
+    ? 'immagine ' + (all.filter(x => rank[x.id] < p).length + 1) + ' di ' + all.length
+    : all.length + ' immagini con questi filtri';
+}
+
+// someone else saved while this page is open: update numbers, never the fields being typed in
+function liveUpdate() {
+  counts();
+  fillWho();
+  updateSaveState();
+  updatePos();
+  const im = list[idx];
+  if (!im) return;
+  const r = recordOf(im.id), now = JSON.stringify(r);
+  if (now !== shown) {
+    shown = now;
+    $('status').innerHTML = describe(r);
+    if (r && r.chi !== me) $('liveNote').textContent = (r.chi || 'Qualcuno') + " l'ha appena " + (r.label ? 'etichettata: «' + r.label + '»' : 'segnalata') + '. Se confermi, la tua versione sostituisce la sua.';
+  }
+}
+
+// ── page ──────────────────────────────────────────────────────────────────
+function render() {
+  counts();
+  const main = $('main');
+  if (!list.length) {
+    main.innerHTML = '<div class="empty" style="grid-column:1/-1">Nessuna immagine con questi filtri.' +
+      ($('fState').value === 'todo' && !$('fGame').value && !$('fZone').value && !$('fSearch').value ? ' Finito, grazie!' : '') + '</div>';
+    $('pos').textContent = '';
+    shown = '';
+    return;
+  }
+  const im = list[idx], r = recordOf(im.id);
+  shown = JSON.stringify(r);
+  updatePos();
+  const h = [];
+  h.push('<div class="viewer"><img id="mainImg" src="' + esc(DATA + im.file) + '" alt="immagine da etichettare">' +
+         '<span class="tag">' + esc(im.id) + '</span></div>');
+  h.push('<div class="panel">');
+  h.push('<div id="status">' + describe(r) + '</div><div id="liveNote"></div>');
+  let ti = null;
+  im.usi.forEach(u => {
+    const a = D.attivita[u.attivita];
+    const info = [u.attivita_nome, (u.distretti || []).join(', '), u.difficolta ? 'livello ' + u.difficolta : ''].filter(Boolean).join(' · ');
+    h.push('<div class="uses"><b>' + esc(GAME_NAMES[u.gioco] || u.gioco) + '</b> ' + esc(info) +
+           (u.parola ? '<br>Parola nel gioco: <span class="word">' + esc(u.parola) + '</span>' : '') +
+           (u.ruolo ? '<br>' + esc(u.ruolo) : '') + '</div>');
+    if (a && a.parole && a.parole.length > 1) h.push('<div class="ctx">Altre parole del gioco: ' + esc(a.parole.filter(p => p !== u.parola).join(' · ')) + '</div>');
+    if (a && a.frase) h.push('<div class="ctx">Frase: ' + esc(a.frase) + '</div>');
+    if (u.gioco === 'trova-intruso' && a) ti = {a, id: u.attivita};
+  });
+  if (ti) {
+    h.push('<div class="hint">Le sei immagini del gioco (bordo tratteggiato rosso = intrusa):</div><div class="thumbs">' +
+      ti.a.immagini.map(id => {
+        const tr = recordOf(id);
+        return '<img src="' + esc(byId[id] ? DATA + byId[id].file : '') + '" data-id="' + esc(id) + '" class="' +
+          (id === im.id ? 'cur ' : '') + (id === ti.a.intrusa ? 'intr' : '') + '" title="' +
+          esc(tr ? (tr.label || 'problema: ' + PROB[tr.problema]) : 'da fare') + '" alt="">';
+      }).join('') + '</div>');
+  }
+  const proposal = !r && im.proposta;
+  const noText = ' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"';
+  h.push('<label class="f">Nome anatomico completo<input id="inLabel" type="text" list="vocab"' + noText +
+         ' class="big' + (proposal ? ' prop' : '') + '" value="' + esc(r ? r.label : (im.proposta || '')) +
+         '" placeholder="es. muscolo sovraspinato"></label>');
+  if (proposal) h.push('<div class="hint">Proposta presa dai nomi dei giochi: controlla e conferma con Invio, oppure correggi.</div>');
+  if (im.suggerimenti && im.suggerimenti.length)
+    h.push('<div><div class="hint">Nomi completi già presenti nei giochi:</div><div class="chips">' +
+      im.suggerimenti.map(s => '<button type="button" data-s="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div></div>');
+  h.push('<div class="row"><label><input id="inUnsure" type="checkbox"' + (r && r.unsure ? ' checked' : '') + '> incerta</label></div>');
+  h.push('<label class="f">Qualcosa non va?<select id="inProb"><option value="">no</option>' +
+    PROBLEMS.map(p => '<option value="' + p[0] + '"' + (r && r.problema === p[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>').join('') +
+    '</select></label>');
+  h.push('<label class="f">Nota (facoltativa)<input id="inNote" type="text"' + noText + ' value="' + esc(r && r.note) + '" placeholder="es. potrebbe essere anche il sottospinato"></label>');
+  if (ti) {
+    const c = catOf(ti.id) || {};
+    h.push('<label class="f">Categoria comune del gruppo (una volta per gioco)<input id="inCat" type="text"' + noText +
+           ' value="' + esc(c.categoria || '') + '" placeholder="es. cartilagini del collo"></label>');
+  }
+  h.push('<div id="formHint"></div>');
+  h.push('<div class="nav"><button type="button" id="bPrev">← Indietro</button><button type="button" id="bSkip">Salta</button>' +
+         '<button type="button" class="primary" id="bSave">Conferma e avanti ↵</button></div>');
+  h.push('</div>');
+  main.innerHTML = h.join('');
+  if (ti) $('inCat').setAttribute('data-act', ti.id);
+
+  $('mainImg').onclick = () => { $('overlayImg').src = DATA + im.file; $('overlay').style.display = 'flex'; };
+  main.querySelectorAll('.chips button').forEach(b => {
+    b.onclick = () => { const i = $('inLabel'); i.value = b.getAttribute('data-s'); i.classList.remove('prop'); i.focus(); };
+  });
+  main.querySelectorAll('.thumbs img').forEach(t => {
+    t.onclick = () => {
+      const id = t.getAttribute('data-id'), p = list.findIndex(x => x.id === id);
+      if (p >= 0) { idx = p; render(); }
+      else { $('fState').value = 'all'; $('fWho').value = ''; filter(id); }
+    };
+  });
+  $('inLabel').oninput = function () { this.classList.remove('prop'); };
+  const probSel = $('inProb');
+  const probChanged = () => {
+    probSel.classList.toggle('on', !!probSel.value);
+    $('inLabel').placeholder = probSel.value ? "facoltativo se c'è un problema" : 'es. muscolo sovraspinato';
+    $('inNote').placeholder = probSel.value ? 'spiega cosa non va' : 'es. potrebbe essere anche il sottospinato';
+  };
+  probSel.onchange = probChanged;
+  probChanged();
+  $('bPrev').onclick = () => step(-1);
+  $('bSkip').onclick = () => step(1);
+  $('bSave').onclick = commit;
+  if (!$('help').hasAttribute('open')) {
+    const inp = $('inLabel');
+    inp.focus();
+    try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {}
+  }
+}
+
+function commit() {
+  const im = list[idx];
+  if (!im) return;
+  const v = $('inLabel').value.trim().replace(/\s+/g, ' ');
+  const p = $('inProb').value, note = $('inNote').value.trim();
+  const now = new Date().toISOString();
+  const cat = $('inCat');
+  if (cat) {
+    const cv = cat.value.trim().replace(/\s+/g, ' '), act = cat.getAttribute('data-act'), cc = catOf(act);
+    if (cv && (!cc || cc.categoria !== cv)) write('c', act, {categoria: cv, at: now, chi: me});
+  }
+  if (!v && !p) { $('formHint').textContent = 'Scrivi il nome oppure scegli cosa non va.'; $('inLabel').focus(); return; }
+  if (p === 'altro' && !note) { $('formHint').textContent = 'Spiega nella nota cosa non va.'; $('inNote').focus(); return; }
+  const cur = recordOf(im.id);
+  const changed = !cur || cur.label !== v || cur.unsure !== $('inUnsure').checked || cur.note !== note || cur.problema !== p;
+  if (changed) {  // confirming someone else's record unchanged keeps their name on it
+    const prima = cur && cur.chi !== me ? {label: cur.label, problema: cur.problema, chi: cur.chi, at: cur.at} : (cur && cur.prima) || null;
+    write('l', im.id, {label: v, unsure: $('inUnsure').checked, note, problema: p, at: now, chi: me, prima});
+    refreshVocab();
+    fillWho();
+  }
+  step(1);
+}
+
+// ── download, name, help ──────────────────────────────────────────────────
+function download() {
+  const etichette = {}, categorie = {};
+  D.immagini.forEach(im => { const r = recordOf(im.id); if (r) etichette[im.id] = r; });
+  Object.keys(server.labels).forEach(k => { if (!etichette[k]) { const r = clean(server.labels[k]); if (r) etichette[k] = r; } });
+  Object.keys(server.cats).forEach(k => { categorie[k] = server.cats[k]; });
+  Object.keys(outbox).forEach(k => { if (outbox[k].kind === 'c') categorie[outbox[k].id] = outbox[k].rec; });
+  const now = new Date();
+  const data = {strumento: 'etichettatura', versione: 2, fonte: 'online', chi: me, esportato: now.toISOString(), creato_dati: D.creato, etichette, categorie};
+  const name = 'etichette_online_' + now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes()) + '.json';
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('Scaricato «' + name + '»: ' + Object.keys(etichette).length + ' immagini.');
+}
+
+const help = $('help');
+function openHelp() {
+  $('inWho').value = me;
+  $('whoHint').textContent = '';
+  $('btnStart').textContent = me ? 'Continua' : 'Inizia';
+  if (typeof help.showModal === 'function') help.showModal(); else help.setAttribute('open', '');
+  setTimeout(() => { $('inWho').focus(); $('inWho').select(); }, 0);
+}
+function closeHelp() {
+  const n = $('inWho').value.trim().replace(/\s+/g, ' ');
+  if (!n) { $('whoHint').textContent = 'Scrivi il tuo nome per iniziare.'; $('inWho').focus(); return; }
+  try { sessionStorage.setItem(K_SESSION, '1'); } catch (e) {}
+  if (typeof help.close === 'function') help.close(); else help.removeAttribute('open');
+  if (n !== me) {
+    me = n;
+    writeLocal(K_NAME, me);
+    if (D) { buildOrder(); fillWho(); filter(); }
+  } else if (D) render();
+}
+help.addEventListener('cancel', e => { e.preventDefault(); closeHelp(); });
+$('btnStart').onclick = closeHelp;
+$('btnHelp').onclick = openHelp;
+$('btnWho').onclick = openHelp;
+$('btnDownload').onclick = () => { if (D) download(); };
+$('btnLogout').onclick = () => {
+  if (Object.keys(outbox).length && !confirm('Alcune conferme non sono ancora salvate online. Uscire lo stesso?')) return;
+  try { sessionStorage.removeItem('puzAuth'); sessionStorage.removeItem(K_SESSION); } catch (e) {}
+  window.location.href = 'login.html';
+};
+['fGame', 'fZone', 'fState', 'fWho'].forEach(id => { $(id).onchange = () => filter(); });
+$('fSearch').oninput = () => filter();
+$('overlay').onclick = function () { this.style.display = 'none'; };
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toast('Non serve salvare: ogni conferma si salva da sola online.'); return; }
+  if (help.hasAttribute('open')) { if (e.key === 'Enter' && e.target.id === 'inWho') { e.preventDefault(); closeHelp(); } return; }
+  if (!started) return;
+  if (e.key === 'Escape') $('overlay').style.display = 'none';
+  if (e.key === 'Enter' && ['inLabel', 'inNote', 'inCat', 'inUnsure'].indexOf(e.target.id) >= 0) { e.preventDefault(); commit(); }
+  if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+  if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+});
+window.addEventListener('online', () => { Object.keys(outbox).forEach(send); updateSaveState(); });
+window.addEventListener('offline', updateSaveState);
+window.addEventListener('beforeunload', e => {
+  if (Object.keys(outbox).length) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+</body>
+</html>
