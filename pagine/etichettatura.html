@@ -112,6 +112,7 @@ dialog p,dialog li{font-size:14.5px}
     <option value="prob">con problema</option>
     <option value="unsure">incerte</option>
     <option value="done">etichettate</option>
+    <option value="multi">modificate più volte</option>
     <option value="all">tutte</option></select></label>
   <label>Fatte da <select id="fWho"></select></label>
   <label>Cerca <input id="fSearch" type="search" placeholder="parola o attività" size="16" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
@@ -141,7 +142,7 @@ dialog p,dialog li{font-size:14.5px}
   <p><b>Invio</b> conferma e passa alla successiva · <b>⌥ Option + ← / →</b> (Alt su Windows) immagine precedente o successiva · clic sull'immagine per ingrandirla.</p>
   <h3>Salvataggio e lavoro in più persone</h3>
   <p>Ogni conferma si salva <b>da sola online</b>: in alto vedi «tutto salvato online». Si può lavorare da più computer e in più persone insieme: vedi subito il lavoro degli altri, le immagini già fatte escono dalle «da fare» e ognuno parte da un punto diverso della lista. Se cade la connessione il lavoro resta su questo computer e parte appena torna la rete: in quel caso non chiudere la pagina finché non torna «tutto salvato online».</p>
-  <p>Se usi un computer condiviso, controlla che qui sopra ci sia il tuo nome. In alto vedi quante immagini hai fatto; il pulsante <b>Contatore</b> mostra quante ne ha fatte ciascuno.</p>
+  <p>Se usi un computer condiviso, controlla che qui sopra ci sia il tuo nome. In alto vedi quante immagini hai fatto; il pulsante <b>Contatore</b> mostra quante ne ha fatte ciascuno. Se correggi un'immagine già fatta, la sua versione sale di uno: con «Mostra: modificate più volte» si rivedono quelle corrette più volte.</p>
   <div class="nav"><button type="button" class="primary" id="btnStart">Inizia</button></div>
 </dialog>
 <dialog id="people">
@@ -152,7 +153,7 @@ dialog p,dialog li{font-size:14.5px}
     <tbody id="pplBody"></tbody>
     <tfoot id="pplFoot"></tfoot>
   </table>
-  <div class="nav"><button type="button" class="primary" id="btnPeopleClose">Chiudi</button></div>
+  <div class="nav"><button type="button" id="btnMulti"></button><button type="button" class="primary" id="btnPeopleClose">Chiudi</button></div>
 </dialog>
 <datalist id="names"></datalist>
 <script type="module">
@@ -221,11 +222,15 @@ function clean(r) {
   if (!r || typeof r !== 'object') return null;
   const label = String(r.label || '').trim(), problema = PROB[r.problema] ? r.problema : '';
   if (!label && !problema) return null;
-  return {label, unsure: !!r.unsure, note: String(r.note || ''), problema, at: r.at || '', chi: r.chi || '', prima: r.prima || null};
+  const prima = r.prima || null;
+  // version 1 = first save; records from before versions existed count 2 if someone replaced them
+  const versione = Math.max(1, Number(r.versione) || (prima ? 2 : 1));
+  const autori = Array.isArray(r.autori) && r.autori.length ? r.autori.map(String) : [prima && prima.chi, r.chi].filter(Boolean);
+  return {label, unsure: !!r.unsure, note: String(r.note || ''), problema, at: r.at || '', chi: r.chi || '', prima, versione, autori};
 }
 function recordOf(id) {
   const o = outbox['l:' + id];
-  return o ? o.rec : clean(server.labels[id]);
+  return clean(o ? o.rec : server.labels[id]);
 }
 function catOf(act) {
   const o = outbox['c:' + act];
@@ -363,6 +368,9 @@ function renderPeople(ps) {
     return '<tr' + (p.key === mine ? ' class="me"' : '') + '><td>' + esc(p.name) + (p.key === mine ? ' (tu)' : '') + '</td><td class="n">' + p.lab +
       '</td><td class="n">' + p.prob + '</td><td class="n">' + p.tot + '</td><td>' + esc(fmt(p.last)) + '</td></tr>';
   }).join('') : '<tr><td colspan="5" class="hint">Ancora nessuna immagine fatta.</td></tr>';
+  const multi = D.immagini.filter(im => { const r = recordOf(im.id); return r && r.versione > 1; }).length;
+  $('btnMulti').textContent = multi ? 'Mostra ' + (multi === 1 ? "l'immagine modificata" : 'le ' + multi + ' immagini modificate') + ' più volte' : 'Nessuna immagine modificata più volte';
+  $('btnMulti').disabled = !multi;
   $('pplFoot').innerHTML = '<tr><td>' + ps.length + (ps.length === 1 ? ' persona' : ' persone') + '</td><td class="n">' + lab + '</td><td class="n">' + prob +
     '</td><td class="n">' + (lab + prob) + '</td><td>' + (tot - lab - prob) + ' da fare</td></tr>';
 }
@@ -407,6 +415,7 @@ function matches(im) {
   if (st === 'prob' && !(r && r.problema)) return false;
   if (st === 'unsure' && !(r && r.unsure)) return false;
   if (st === 'done' && !(r && r.label)) return false;
+  if (st === 'multi' && !(r && r.versione > 1)) return false;
   if (w && st !== 'todo' && !(r && pkey(r.chi) === w)) return false;
   if (q && !im.usi.some(u => (u.parola || '').toLowerCase().indexOf(q) >= 0 || (u.attivita_nome || '').toLowerCase().indexOf(q) >= 0)) return false;
   return true;
@@ -462,6 +471,7 @@ function describe(r) {
       (r.problema ? '<br>Problema: ' + esc(PROB[r.problema]) : '') + '</div>'
     : '<div class="status prob">Problema: ' + esc(PROB[r.problema]) + by + '</div>';
   if (r.note) h += '<div class="hint">Nota: ' + esc(r.note) + '</div>';
+  if (r.versione > 1) h += '<div class="hint">Versione ' + r.versione + ' · scritta da ' + esc(r.autori.join(', ')) + '</div>';
   if (r.prima && (r.prima.label || r.prima.problema))
     h += '<div class="hint">Prima: ' + esc(r.prima.label || 'problema «' + (PROB[r.prima.problema] || r.prima.problema) + '»') + ' (' + esc(r.prima.chi || '?') + ')</div>';
   return h;
@@ -608,7 +618,10 @@ function commit() {
   const changed = !cur || cur.label !== v || cur.unsure !== $('inUnsure').checked || cur.note !== note || cur.problema !== p;
   if (changed) {  // confirming someone else's record unchanged keeps their name on it
     const prima = cur && !same(cur.chi, me) ? {label: cur.label, problema: cur.problema, chi: cur.chi, at: cur.at} : (cur && cur.prima) || null;
-    write('l', im.id, {label: v, unsure: $('inUnsure').checked, note, problema: p, at: now, chi: me, prima});
+    const autori = (cur ? cur.autori : []).slice();
+    if (!autori.some(a => same(a, me))) autori.push(me);
+    write('l', im.id, {label: v, unsure: $('inUnsure').checked, note, problema: p, at: now, chi: me, prima,
+                       versione: (cur ? cur.versione : 0) + 1, autori});
     refreshVocab();
     fillWho();
   }
@@ -665,7 +678,9 @@ $('btnPeople').onclick = () => {
   renderPeople();
   if (typeof peopleDlg.showModal === 'function') peopleDlg.showModal(); else peopleDlg.setAttribute('open', '');
 };
-$('btnPeopleClose').onclick = () => { if (typeof peopleDlg.close === 'function') peopleDlg.close(); else peopleDlg.removeAttribute('open'); };
+function closePeople() { if (typeof peopleDlg.close === 'function') peopleDlg.close(); else peopleDlg.removeAttribute('open'); }
+$('btnPeopleClose').onclick = closePeople;
+$('btnMulti').onclick = () => { closePeople(); $('fState').value = 'multi'; $('fWho').value = ''; filter(); };
 $('btnLogout').onclick = () => {
   if (Object.keys(outbox).length && !confirm('Alcune conferme non sono ancora salvate online. Uscire lo stesso?')) return;
   try { sessionStorage.removeItem('puzAuth'); sessionStorage.removeItem(K_SESSION); } catch (e) {}
