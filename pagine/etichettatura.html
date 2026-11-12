@@ -15,13 +15,21 @@
 :root{--bg:#f6f5f1;--card:#fff;--ink:#1b2a41;--muted:#5a6577;--line:#ddd9cf;--accent:#1d4ed8;--ok:#15803d;--warn:#b45309;--prob:#f59e0b;--prop:#fef3c7}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
-header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 16px;background:var(--ink);color:#fff}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--ink);color:#fff}
 header h1{font-size:17px;margin:0 4px 0 0}
 .grow{flex:1}
-header button{background:#2d4166;color:#fff;border:0;border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer;white-space:nowrap}
+header button{background:#2d4166;color:#fff;border:0;border-radius:6px;padding:6px 10px;font:inherit;cursor:pointer;white-space:nowrap}
 header button:hover{background:#3b5584}
 header #btnWho{background:none;padding:2px 4px;text-decoration:underline dotted;text-underline-offset:3px}
+header #btnLogout{background:none;padding:2px 6px;font-size:13px;opacity:.8;text-decoration:underline;text-underline-offset:3px}
 #count{font-size:14px}
+#myCount{font-size:13px;opacity:.85}
+table.ppl{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0 14px}
+table.ppl th,table.ppl td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+table.ppl th{font-size:12.5px;color:var(--muted);font-weight:600}
+table.ppl .n{text-align:right;font-variant-numeric:tabular-nums}
+table.ppl tr.me td{background:#eef2ff;font-weight:600}
+table.ppl tfoot td{border-bottom:0;border-top:2px solid var(--line);font-weight:600}
 #saveState{font-size:13px;padding:2px 10px;border-radius:999px}
 #saveState.ok{background:#14532d;color:#bbf7d0}
 #saveState.warn{background:#92400e;color:#fde68a}
@@ -85,12 +93,14 @@ dialog p,dialog li{font-size:14.5px}
 <header>
   <h1>Etichettatura immagini</h1>
   <button id="btnWho" type="button" title="Cambia nome"></button>
+  <span id="myCount"></span>
+  <button id="btnLogout" type="button">Esci</button>
   <span class="grow"></span>
   <span id="count"></span>
   <span id="saveState"></span>
   <button id="btnHelp" type="button">Istruzioni</button>
+  <button id="btnPeople" type="button" title="Quante immagini ha fatto ciascuno">Contatore</button>
   <button id="btnDownload" type="button" title="Scarica tutte le etichette in un file JSON">Scarica etichette</button>
-  <button id="btnLogout" type="button">Esci</button>
 </header>
 <div class="progress"><div id="p1"></div><div id="p2"></div></div>
 <div class="bar">
@@ -115,7 +125,8 @@ dialog p,dialog li{font-size:14.5px}
 <dialog id="help">
   <h2>Etichettatura delle immagini</h2>
   <label class="f">Il tuo nome (compare accanto alle tue etichette)
-    <input id="inWho" type="text" autocomplete="name" autocorrect="off" spellcheck="false" placeholder="es. Mario Rossi"></label>
+    <input id="inWho" type="text" list="names" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="es. Mario Rossi"></label>
+  <div class="hint">Se hai già lavorato, anche da un altro computer, scegli il tuo nome dall'elenco: così il contatore ti conta una volta sola.</div>
   <div id="whoHint"></div>
   <h3>Cosa fare</h3>
   <p>Per ogni immagine scrivi il <b>nome anatomico completo</b> della struttura evidenziata (colorata o indicata da un punto), come lo scriveresti in un referto: per esempio <i>muscolo sovraspinato</i>, <i>arteria femorale comune</i>, <i>funicolo spermatico</i>.</p>
@@ -130,9 +141,20 @@ dialog p,dialog li{font-size:14.5px}
   <p><b>Invio</b> conferma e passa alla successiva · <b>⌥ Option + ← / →</b> (Alt su Windows) immagine precedente o successiva · clic sull'immagine per ingrandirla.</p>
   <h3>Salvataggio e lavoro in più persone</h3>
   <p>Ogni conferma si salva <b>da sola online</b>: in alto vedi «tutto salvato online». Si può lavorare da più computer e in più persone insieme: vedi subito il lavoro degli altri, le immagini già fatte escono dalle «da fare» e ognuno parte da un punto diverso della lista. Se cade la connessione il lavoro resta su questo computer e parte appena torna la rete: in quel caso non chiudere la pagina finché non torna «tutto salvato online».</p>
-  <p>Se usi un computer condiviso, controlla che qui sopra ci sia il tuo nome.</p>
+  <p>Se usi un computer condiviso, controlla che qui sopra ci sia il tuo nome. In alto vedi quante immagini hai fatto; il pulsante <b>Contatore</b> mostra quante ne ha fatte ciascuno.</p>
   <div class="nav"><button type="button" class="primary" id="btnStart">Inizia</button></div>
 </dialog>
+<dialog id="people">
+  <h2>Contatore per persona</h2>
+  <p class="hint">Per ogni immagine conta chi ne ha scritto l'ultima versione. Si aggiorna da solo mentre gli altri lavorano.</p>
+  <table class="ppl">
+    <thead><tr><th>Persona</th><th class="n">Etichettate</th><th class="n">Con problema</th><th class="n">Totale</th><th>Ultima conferma</th></tr></thead>
+    <tbody id="pplBody"></tbody>
+    <tfoot id="pplFoot"></tfoot>
+  </table>
+  <div class="nav"><button type="button" class="primary" id="btnPeopleClose">Chiudi</button></div>
+</dialog>
+<datalist id="names"></datalist>
 <script type="module">
 import { db } from '/script/comune/firebase-init.js';
 import { collection, doc, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
@@ -162,11 +184,15 @@ let D = null;                          // images and games (dati.json)
 const byId = {};
 let server = {labels: {}, cats: {}};   // what Firestore has
 let gotServer = false, connected = null, started = false;
+let blind = false, dirty = false;   // blind: opened without the database; dirty: something typed on this image
 let outbox = readJSON(K_OUTBOX, {});   // confirmed here, not yet acknowledged by Firestore
 let me = readLocal(K_NAME) || '';
 let order = [], rank = {}, list = [], idx = 0, shown = '';
 
 const $ = id => document.getElementById(id);
+// the same person typed in different ways ("Mario Rossi", "mario  rossi") counts once
+function pkey(n) { return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+function same(a, b) { return pkey(a) === pkey(b); }
 function readLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function writeLocal(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function readJSON(k, d) { try { return JSON.parse(readLocal(k)) || d; } catch (e) { return d; } }
@@ -243,6 +269,8 @@ onSnapshot(collection(db, COLL), snap => {
   server = {labels, cats};
   gotServer = true;
   connected = true;
+  if (started && blind && !dirty) { blind = false; filter(); updateSaveState(); return; }  // now we know what the others did
+  blind = false;
   if (started) liveUpdate(); else maybeStart();
 }, err => {
   connected = false;
@@ -272,6 +300,7 @@ setTimeout(() => {
 function maybeStart(force) {
   if (started || !D || !(gotServer || force)) return;
   started = true;
+  blind = !gotServer;
   // resend what was confirmed here but never reached the database
   Object.keys(outbox).forEach(k => {
     const o = outbox[k];
@@ -301,10 +330,41 @@ function fill(sel, values, all) {
   sel.value = cur;
   if (sel.value !== cur) sel.value = '';
 }
+// images done by each person (the author of the current version), most active first
+function people() {
+  const by = {};
+  D.immagini.forEach(im => {
+    const r = recordOf(im.id);
+    if (!r) return;
+    const k = pkey(r.chi), p = by[k] || (by[k] = {key: k, spell: {}, lab: 0, prob: 0, last: ''});
+    p.spell[r.chi || '?'] = (p.spell[r.chi || '?'] || 0) + 1;
+    if (r.label) p.lab++; else p.prob++;
+    if ((r.at || '') > p.last) p.last = r.at || '';
+  });
+  return Object.keys(by).map(k => {
+    const p = by[k];
+    p.name = Object.keys(p.spell).sort((a, b) => p.spell[b] - p.spell[a])[0];
+    p.tot = p.lab + p.prob;
+    return p;
+  }).sort((a, b) => b.tot - a.tot || a.name.localeCompare(b.name, 'it'));
+}
 function fillWho() {
-  const names = {};
-  D.immagini.forEach(im => { const r = recordOf(im.id); if (r && r.chi) names[r.chi] = 1; });
-  fill($('fWho'), Object.keys(names).sort().map(n => [n, n === me ? n + ' (tu)' : n]), 'chiunque');
+  const ps = people(), mine = pkey(me);
+  fill($('fWho'), ps.slice().sort((a, b) => a.name.localeCompare(b.name, 'it')).map(p => [p.key, p.key === mine ? p.name + ' (tu)' : p.name]), 'chiunque');
+  $('names').innerHTML = ps.map(p => '<option value="' + esc(p.name) + '">').join('');
+  if ($('people').hasAttribute('open')) renderPeople(ps);
+}
+function renderPeople(ps) {
+  ps = ps || people();
+  const mine = pkey(me), tot = D.immagini.length;
+  let lab = 0, prob = 0;
+  $('pplBody').innerHTML = ps.length ? ps.map(p => {
+    lab += p.lab; prob += p.prob;
+    return '<tr' + (p.key === mine ? ' class="me"' : '') + '><td>' + esc(p.name) + (p.key === mine ? ' (tu)' : '') + '</td><td class="n">' + p.lab +
+      '</td><td class="n">' + p.prob + '</td><td class="n">' + p.tot + '</td><td>' + esc(fmt(p.last)) + '</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="hint">Ancora nessuna immagine fatta.</td></tr>';
+  $('pplFoot').innerHTML = '<tr><td>' + ps.length + (ps.length === 1 ? ' persona' : ' persone') + '</td><td class="n">' + lab + '</td><td class="n">' + prob +
+    '</td><td class="n">' + (lab + prob) + '</td><td>' + (tot - lab - prob) + ' da fare</td></tr>';
 }
 function refreshVocab() {
   const seen = {}, out = [];
@@ -347,7 +407,7 @@ function matches(im) {
   if (st === 'prob' && !(r && r.problema)) return false;
   if (st === 'unsure' && !(r && r.unsure)) return false;
   if (st === 'done' && !(r && r.label)) return false;
-  if (w && st !== 'todo' && !(r && r.chi === w)) return false;
+  if (w && st !== 'todo' && !(r && pkey(r.chi) === w)) return false;
   if (q && !im.usi.some(u => (u.parola || '').toLowerCase().indexOf(q) >= 0 || (u.attivita_nome || '').toLowerCase().indexOf(q) >= 0)) return false;
   return true;
 }
@@ -379,6 +439,8 @@ function counts() {
   $('p1').style.width = (100 * lab / tot).toFixed(2) + '%';
   $('p2').style.width = (100 * prob / tot).toFixed(2) + '%';
   $('btnWho').textContent = me ? me + ' ✎' : 'chi sei?';
+  const mine = me ? people().find(p => p.key === pkey(me)) : null, n = mine ? mine.tot : 0;
+  $('myCount').textContent = me ? n + (n === 1 ? ' fatta da te' : ' fatte da te') : '';
 }
 function updateSaveState() {
   const s = $('saveState'), n = Object.keys(outbox).length;
@@ -394,7 +456,7 @@ function updateSaveState() {
 function describe(r) {
   if (!r) return '<div class="status todo">Da fare</div>';
   const when = fmt(r.at);
-  const by = ' · ' + esc(r.chi === me ? 'da te' : 'da ' + (r.chi || '?')) + (when ? ' il ' + when : '');
+  const by = ' · ' + esc(same(r.chi, me) ? 'da te' : 'da ' + (r.chi || '?')) + (when ? ' il ' + when : '');
   let h = r.label
     ? '<div class="status ' + (r.problema ? 'prob' : 'done') + '">Etichettata' + (r.unsure ? ' (incerta)' : '') + by +
       (r.problema ? '<br>Problema: ' + esc(PROB[r.problema]) : '') + '</div>'
@@ -427,7 +489,7 @@ function liveUpdate() {
   if (now !== shown) {
     shown = now;
     $('status').innerHTML = describe(r);
-    if (r && r.chi !== me) $('liveNote').textContent = (r.chi || 'Qualcuno') + " l'ha appena " + (r.label ? 'etichettata: «' + r.label + '»' : 'segnalata') + '. Se confermi, la tua versione sostituisce la sua.';
+    if (r && !same(r.chi, me)) $('liveNote').textContent = (r.chi || 'Qualcuno') + " l'ha appena " + (r.label ? 'etichettata: «' + r.label + '»' : 'segnalata') + '. Se confermi, la tua versione sostituisce la sua.';
   }
 }
 
@@ -507,14 +569,17 @@ function render() {
       else { $('fState').value = 'all'; $('fWho').value = ''; filter(id); }
     };
   });
-  $('inLabel').oninput = function () { this.classList.remove('prop'); };
+  dirty = false;
+  $('inLabel').oninput = function () { this.classList.remove('prop'); dirty = true; };
+  ['inNote', 'inCat'].forEach(id => { if ($(id)) $(id).addEventListener('input', () => { dirty = true; }); });
+  $('inUnsure').addEventListener('change', () => { dirty = true; });
   const probSel = $('inProb');
   const probChanged = () => {
     probSel.classList.toggle('on', !!probSel.value);
     $('inLabel').placeholder = probSel.value ? "facoltativo se c'è un problema" : 'es. muscolo sovraspinato';
     $('inNote').placeholder = probSel.value ? 'spiega cosa non va' : 'es. potrebbe essere anche il sottospinato';
   };
-  probSel.onchange = probChanged;
+  probSel.onchange = () => { dirty = true; probChanged(); };
   probChanged();
   $('bPrev').onclick = () => step(-1);
   $('bSkip').onclick = () => step(1);
@@ -542,7 +607,7 @@ function commit() {
   const cur = recordOf(im.id);
   const changed = !cur || cur.label !== v || cur.unsure !== $('inUnsure').checked || cur.note !== note || cur.problema !== p;
   if (changed) {  // confirming someone else's record unchanged keeps their name on it
-    const prima = cur && cur.chi !== me ? {label: cur.label, problema: cur.problema, chi: cur.chi, at: cur.at} : (cur && cur.prima) || null;
+    const prima = cur && !same(cur.chi, me) ? {label: cur.label, problema: cur.problema, chi: cur.chi, at: cur.at} : (cur && cur.prima) || null;
     write('l', im.id, {label: v, unsure: $('inUnsure').checked, note, problema: p, at: now, chi: me, prima});
     refreshVocab();
     fillWho();
@@ -577,7 +642,9 @@ function openHelp() {
   setTimeout(() => { $('inWho').focus(); $('inWho').select(); }, 0);
 }
 function closeHelp() {
-  const n = $('inWho').value.trim().replace(/\s+/g, ' ');
+  let n = $('inWho').value.trim().replace(/\s+/g, ' ');
+  const known = D && n ? people().find(p => p.key === pkey(n)) : null;
+  if (known) n = known.name;
   if (!n) { $('whoHint').textContent = 'Scrivi il tuo nome per iniziare.'; $('inWho').focus(); return; }
   try { sessionStorage.setItem(K_SESSION, '1'); } catch (e) {}
   if (typeof help.close === 'function') help.close(); else help.removeAttribute('open');
@@ -592,6 +659,13 @@ $('btnStart').onclick = closeHelp;
 $('btnHelp').onclick = openHelp;
 $('btnWho').onclick = openHelp;
 $('btnDownload').onclick = () => { if (D) download(); };
+const peopleDlg = $('people');
+$('btnPeople').onclick = () => {
+  if (!started) return;
+  renderPeople();
+  if (typeof peopleDlg.showModal === 'function') peopleDlg.showModal(); else peopleDlg.setAttribute('open', '');
+};
+$('btnPeopleClose').onclick = () => { if (typeof peopleDlg.close === 'function') peopleDlg.close(); else peopleDlg.removeAttribute('open'); };
 $('btnLogout').onclick = () => {
   if (Object.keys(outbox).length && !confirm('Alcune conferme non sono ancora salvate online. Uscire lo stesso?')) return;
   try { sessionStorage.removeItem('puzAuth'); sessionStorage.removeItem(K_SESSION); } catch (e) {}
@@ -603,7 +677,7 @@ $('overlay').onclick = function () { this.style.display = 'none'; };
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toast('Non serve salvare: ogni conferma si salva da sola online.'); return; }
   if (help.hasAttribute('open')) { if (e.key === 'Enter' && e.target.id === 'inWho') { e.preventDefault(); closeHelp(); } return; }
-  if (!started) return;
+  if (!started || peopleDlg.hasAttribute('open')) return;
   if (e.key === 'Escape') $('overlay').style.display = 'none';
   if (e.key === 'Enter' && ['inLabel', 'inNote', 'inCat', 'inUnsure'].indexOf(e.target.id) >= 0) { e.preventDefault(); commit(); }
   if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); step(1); }
